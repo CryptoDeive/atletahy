@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { Header, type HeaderMode, type HeaderView } from '../Header';
 import type { AuthMode } from '../auth/AuthPanel';
+import { LegalFooter } from '../../legal/LegalFooter';
 
 interface AppShellProps {
   mode: HeaderMode;
@@ -34,9 +35,10 @@ export function AppShell({ mode, activeView, authEmail, onNavigate, onAuthIntent
       <div className="pointer-events-none fixed inset-0 bg-grid bg-[length:72px_72px] opacity-[0.22]" />
       <a className="skip-link" href="#main-content">Saltar al contenido principal</a>
       <Header mode={mode} activeView={activeView} authEmail={authEmail} onNavigate={onNavigate} onAuthIntent={onAuthIntent} navigationDisabled={navigationDisabled} />
-      <main id="main-content" ref={mainRef} tabIndex={-1}>
+      <main id="main-content" ref={mainRef} tabIndex={-1} className="flex min-h-[calc(100vh-5rem)] flex-col">
         {children}
       </main>
+      <LegalFooter />
     </div>
   );
 }

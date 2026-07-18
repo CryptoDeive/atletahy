@@ -18,13 +18,13 @@ describe('performance architecture', () => {
     expect(`${appSource}\n${trainingDaySource}`).toContain('role="status"');
   });
 
-  it('loads display fonts from the document head instead of a blocking CSS import', () => {
+  it('uses device fonts without third-party font requests or blocking CSS imports', () => {
     const cssSource = projectFile('src/index.css');
     const htmlSource = projectFile('index.html');
 
     expect(cssSource).not.toMatch(/@import\s+url\([^)]*fonts\.googleapis\.com/);
-    expect(htmlSource).toContain('fonts.googleapis.com/css2');
-    expect(htmlSource).toContain('display=swap');
+    expect(htmlSource).not.toContain('fonts.googleapis.com');
+    expect(htmlSource).not.toContain('fonts.gstatic.com');
   });
 
   it('keeps third-party dependencies in one cacheable vendor chunk', () => {

@@ -215,6 +215,16 @@ type TrainingTestResultInsert = Partial<RowTimestamps> & {
   notes?: string | null;
 };
 
+type ConsentEventRow = {
+  id: string;
+  user_id: string;
+  purpose: 'health_data' | 'health_data_ai' | 'legal_terms' | 'adult_declaration';
+  granted: boolean;
+  policy_version: string;
+  recorded_at: string;
+  created_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -229,9 +239,15 @@ export type Database = {
       coach_advices: TableDefinition<CoachAdviceRow>;
       training_plans: TableDefinition<TrainingPlanRow, TrainingPlanInsert>;
       training_test_results: TableDefinition<TrainingTestResultRow, TrainingTestResultInsert>;
+      consent_events: TableDefinition<ConsentEventRow, never, never>;
     };
     Views: Record<string, never>;
     Functions: {
+      record_health_consents: FunctionDefinition<{
+        p_health_data: boolean;
+        p_health_data_ai: boolean;
+        p_policy_version: string;
+      }, undefined>;
       consume_ai_quota: FunctionDefinition<{
         p_feature: 'coach_advice' | 'training_plan';
       }, { allowed: boolean; remaining: number; retry_after_seconds: number }>;

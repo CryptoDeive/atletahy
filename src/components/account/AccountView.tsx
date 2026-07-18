@@ -51,6 +51,7 @@ interface AccountViewProps {
   onTabChange?: (tab: AccountTab) => void;
   onDirtyChange?: (dirty: boolean) => void;
   storageContext: StorageContext;
+  healthDataConsentGranted?: boolean;
 }
 
 
@@ -218,6 +219,7 @@ export function AccountView({
   onTabChange,
   onDirtyChange,
   storageContext,
+  healthDataConsentGranted = true,
 }: AccountViewProps) {
   const safeInitialTab = tabs.some((tab) => tab.id === initialTab) ? initialTab as AccountTab : 'profile';
   const [activeTab, setActiveTab] = useState<AccountTab>(safeInitialTab);
@@ -317,6 +319,15 @@ export function AccountView({
   }
 
   function renderActiveSection() {
+    if (!healthDataConsentGranted && ['physiology', 'injuries', 'nutrition', 'readiness'].includes(activeTab)) {
+      return (
+        <section className="rounded-2xl border border-sky-300/25 bg-sky-300/5 p-5 shadow-panel">
+          <h3 className="font-display text-2xl uppercase text-sky-100">Datos de salud desactivados</h3>
+          <p className="mt-3 text-sm font-semibold leading-relaxed text-sky-50/75">Esta sección puede contener categorías especiales de datos. Para introducirlas o guardarlas debes otorgar antes el consentimiento explícito desde la pestaña Privacidad. Puedes retirarlo de nuevo en cualquier momento.</p>
+          <button type="button" onClick={() => { setActiveTab('privacy'); onTabChange?.('privacy'); }} className="mt-4 rounded-full border border-sky-200/40 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-sky-100">Ir a Privacidad</button>
+        </section>
+      );
+    }
     if (activeTab === 'profile') {
       return (
         <SectionShell title="Perfil básico">

@@ -105,6 +105,7 @@ describe('HYROX Planner authenticated shell', () => {
     fireEvent.click(screen.getByLabelText('Sled'));
     fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
 
+    fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
     fireEvent.click(screen.getByRole('button', { name: 'Finalizar' }));
 
     await waitFor(() => expect(screen.getByRole('region', { name: /Dashboard semanal/i })).toBeInTheDocument());

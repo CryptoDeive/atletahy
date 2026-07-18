@@ -4,7 +4,7 @@
 
 :root {
   color-scheme: dark;
-  font-family: 'Saira Condensed', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Arial Narrow', 'Aptos Narrow', ui-sans-serif, system-ui, sans-serif;
   background: #050505;
   text-rendering: geometricPrecision;
 }

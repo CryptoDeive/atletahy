@@ -4,9 +4,9 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        display: ['"Archivo Black"', 'Impact', 'sans-serif'],
-        body: ['"Saira Condensed"', 'ui-sans-serif', 'system-ui'],
-        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        display: ['Impact', 'Haettenschweiler', '"Arial Narrow Bold"', 'sans-serif'],
+        body: ['"Arial Narrow"', 'Aptos Narrow', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['Consolas', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       colors: {
         hyrox: {

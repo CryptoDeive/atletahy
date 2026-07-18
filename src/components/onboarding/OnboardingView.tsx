@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode, type SetStateAction } from 'react';
 import { createEmptyInjury } from '../../data/defaultAthleteState';
 import type { AthleteState, EquipmentAvailability, Injury, MainGoal } from '../../types/athlete';
+import type { ConsentChoices } from '../../legal/consent';
 
 interface OnboardingViewProps {
   athleteState: AthleteState;
@@ -9,9 +10,10 @@ interface OnboardingViewProps {
   onSavingChange?: (isSaving: boolean) => void;
   draftStorageKey?: string;
   onDirtyChange?: (dirty: boolean) => void;
+  onConsentChange?: (choices: ConsentChoices) => Promise<void> | void;
 }
 
-type StepId = 'objective' | 'level' | 'availability' | 'equipment' | 'injuries';
+type StepId = 'objective' | 'level' | 'availability' | 'equipment' | 'injuries' | 'privacy';
 
 const steps: { id: StepId; label: string }[] = [
   { id: 'objective', label: 'Objetivo' },
@@ -19,6 +21,7 @@ const steps: { id: StepId; label: string }[] = [
   { id: 'availability', label: 'Disponibilidad' },
   { id: 'equipment', label: 'Material' },
   { id: 'injuries', label: 'Lesiones' },
+  { id: 'privacy', label: 'Privacidad' },
 ];
 
 const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -38,6 +41,32 @@ const equipmentOptions: { key: keyof EquipmentAvailability; label: string }[] = 
   { key: 'runningSpace', label: 'Espacio para correr' },
   { key: 'plyoBox', label: 'Cajón pliométrico' },
 ];
+
+type SafeOnboardingDraft = Pick<AthleteState, 'availability' | 'equipment'> & {
+  profile: Pick<AthleteState['profile'], 'hyroxCategory' | 'targetDate' | 'mainGoal' | 'targetTime'>;
+};
+
+function toSafeOnboardingDraft(draft: AthleteState): SafeOnboardingDraft {
+  return {
+    profile: {
+      hyroxCategory: draft.profile.hyroxCategory,
+      targetDate: draft.profile.targetDate,
+      mainGoal: draft.profile.mainGoal,
+      targetTime: draft.profile.targetTime,
+    },
+    availability: draft.availability,
+    equipment: draft.equipment,
+  };
+}
+
+function restoreSafeOnboardingDraft(athleteState: AthleteState, saved: SafeOnboardingDraft): AthleteState {
+  return {
+    ...athleteState,
+    profile: { ...athleteState.profile, ...saved.profile },
+    availability: { ...athleteState.availability, ...saved.availability },
+    equipment: { ...athleteState.equipment, ...saved.equipment },
+  };
+}
 
 function toNumberOrEmpty(value: string) {
   return value === '' ? '' : Number(value);
@@ -86,12 +115,12 @@ function StepCard({ children }: { children: ReactNode }) {
   return <section className="rounded-3xl border border-white/10 bg-black/30 p-4 shadow-panel sm:p-5">{children}</section>;
 }
 
-export function OnboardingView({ athleteState, onComplete, onSkip, onSavingChange, draftStorageKey, onDirtyChange }: OnboardingViewProps) {
+export function OnboardingView({ athleteState, onComplete, onSkip, onSavingChange, draftStorageKey, onDirtyChange, onConsentChange }: OnboardingViewProps) {
   const [draft, rawSetDraft] = useState<AthleteState>(() => {
     if (!draftStorageKey) return athleteState;
     try {
       const saved = window.sessionStorage.getItem(draftStorageKey);
-      return saved ? JSON.parse(saved) as AthleteState : athleteState;
+      return saved ? restoreSafeOnboardingDraft(athleteState, JSON.parse(saved) as SafeOnboardingDraft) : athleteState;
     } catch {
       return athleteState;
     }
@@ -100,6 +129,7 @@ export function OnboardingView({ athleteState, onComplete, onSkip, onSavingChang
   const [stepIndex, setStepIndex] = useState(0);
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [consents, setConsents] = useState<ConsentChoices>({ healthData: false, healthDataWithAi: false });
 
   const hasActiveInjury = draft.injuries.some((injury) => injury.status === 'active');
   const availableDaysCount = draft.availability.availableDays.length;
@@ -114,7 +144,7 @@ export function OnboardingView({ athleteState, onComplete, onSkip, onSavingChang
 
   useEffect(() => {
     if (!isDirty || !draftStorageKey) return;
-    window.sessionStorage.setItem(draftStorageKey, JSON.stringify(draft));
+    window.sessionStorage.setItem(draftStorageKey, JSON.stringify(toSafeOnboardingDraft(draft)));
   }, [draft, draftStorageKey, isDirty]);
 
   function setDraft(value: SetStateAction<AthleteState>) {
@@ -249,10 +279,17 @@ export function OnboardingView({ athleteState, onComplete, onSkip, onSavingChang
       return;
     }
 
+    if (draft.injuries.length > 0 && !consents.healthData) {
+      setStepIndex(5);
+      setError('Para guardar lesiones o molestias debes autorizar expresamente el tratamiento de datos de salud. También puedes volver atrás y eliminarlas.');
+      return;
+    }
+
     setError('');
     setIsSaving(true);
     onSavingChange?.(true);
     try {
+      if (onConsentChange) await onConsentChange(consents);
       await onComplete({
         ...draft,
         profile: {
@@ -368,6 +405,27 @@ export function OnboardingView({ athleteState, onComplete, onSkip, onSavingChang
       );
     }
 
+    if (steps[stepIndex].id === 'privacy') {
+      return (
+        <StepCard>
+          <p className="font-mono text-[0.68rem] font-black uppercase tracking-[0.2em] text-hyrox-gold">Paso 6 · Privacidad y salud</p>
+          <h3 className="mt-3 font-display text-3xl uppercase text-white">Tú decides sobre tus datos sensibles</h3>
+          <p className="mt-3 text-sm font-semibold leading-relaxed text-white/65">Estos consentimientos son opcionales, están separados y no vienen marcados. Puedes retirarlos desde Mi cuenta. Sin el primero no guardaremos lesiones ni otros datos de salud; sin el segundo no enviaremos esos datos a OpenAI.</p>
+          <div className="mt-5 grid gap-3">
+            <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-sm font-semibold leading-relaxed text-white/80">
+              <input className="mt-1 accent-hyrox-gold" type="checkbox" checked={consents.healthData} onChange={(event) => setConsents({ healthData: event.target.checked, healthDataWithAi: event.target.checked ? consents.healthDataWithAi : false })} />
+              <span>Consiento expresamente que se traten mis datos de salud (por ejemplo lesiones, dolor, frecuencia cardiaca, sueño o fatiga) para personalizar mi experiencia deportiva en AtletaHY.</span>
+            </label>
+            <label className={`flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-sm font-semibold leading-relaxed ${consents.healthData ? 'text-white/80' : 'text-white/40'}`}>
+              <input className="mt-1 accent-hyrox-gold" type="checkbox" disabled={!consents.healthData} checked={consents.healthDataWithAi} onChange={(event) => setConsents((current) => ({ ...current, healthDataWithAi: event.target.checked }))} />
+              <span>Consiento expresamente que los datos de salud necesarios se comuniquen a OpenAI para generar planes y consejos con IA.</span>
+            </label>
+          </div>
+          <p className="mt-4 text-xs font-semibold leading-relaxed text-white/55">Consulta la <a className="text-hyrox-gold underline" href="/politica-privacidad">política de privacidad</a>. La IA no sustituye asesoramiento médico y no toma decisiones con efectos jurídicos.</p>
+        </StepCard>
+      );
+    }
+
     const injury = draft.injuries.find((item) => item.status === 'active') ?? createEmptyInjury('preview-injury');
     return (
       <StepCard>
@@ -410,7 +468,7 @@ export function OnboardingView({ athleteState, onComplete, onSkip, onSavingChang
           <div className="h-2 overflow-hidden rounded-full bg-white/10">
             <div className="h-full rounded-full bg-hyrox-gold transition-all" style={{ width: `${progress}%` }} />
           </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-5">
+          <div className="mt-3 grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
             {steps.map((step, index) => (
               <button key={step.id} type="button" onClick={() => goToStep(index)} disabled={isSaving} className={`rounded-xl border px-2 py-2 text-xs font-black uppercase tracking-[0.12em] transition ${index === stepIndex ? 'border-hyrox-gold bg-hyrox-gold text-black' : index < stepIndex ? 'border-hyrox-gold/35 bg-hyrox-gold/[0.08] text-hyrox-gold' : 'border-white/10 bg-white/[0.03] text-white/45'} disabled:cursor-not-allowed disabled:opacity-45`}>
                 {index + 1}. {step.label}

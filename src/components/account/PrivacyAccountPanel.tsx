@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ACCOUNT_DELETION_CONFIRMATION,
   clearLocalAccountData,
@@ -6,6 +6,8 @@ import {
 } from '../../privacy/accountPrivacy';
 import { requestAccountDeletion, type AccountDeletionInput, type AccountDeletionResult } from '../../privacy/accountDeletionService';
 import type { StorageContext } from '../../repositories/storageKeys';
+import { loadConsent, saveConsent, withdrawHealthConsent } from '../../legal/consentRepository';
+import type { ConsentChoices } from '../../legal/consent';
 
 interface PrivacyAccountPanelProps {
   storageContext: StorageContext;
@@ -20,7 +22,29 @@ export function PrivacyAccountPanel({ storageContext, authenticated, onExport, o
   const [currentPassword, setCurrentPassword] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deletionStatus, setDeletionStatus] = useState<string | null>(null);
+  const [consents, setConsents] = useState<ConsentChoices>({ healthData: false, healthDataWithAi: false });
+  const [consentStatus, setConsentStatus] = useState<string | null>(null);
   const canDelete = authenticated && acknowledged && phrase === ACCOUNT_DELETION_CONFIRMATION && currentPassword.length > 0 && !deleting;
+
+  useEffect(() => {
+    void loadConsent(storageContext).then((record) => {
+      if (record) setConsents({ healthData: record.healthData, healthDataWithAi: record.healthDataWithAi });
+    });
+  }, [storageContext]);
+
+  async function handleSaveConsents() {
+    const result = consents.healthData
+      ? await saveConsent(storageContext, consents)
+      : await withdrawHealthConsent(storageContext);
+    window.dispatchEvent(new CustomEvent('atletahy:consent-changed'));
+    if (!consents.healthData && 'deletionErrors' in result && Array.isArray(result.deletionErrors) && result.deletionErrors.length > 0) {
+      setConsentStatus('El consentimiento se ha retirado en este dispositivo, pero no se pudieron eliminar todos los datos de salud remotos. Contacta con david@davidgonzalezarmas.com para completar la solicitud.');
+      return;
+    }
+    setConsentStatus(result.remotelyAudited
+      ? 'Preferencias registradas con versión y fecha en el historial de consentimiento.'
+      : 'Preferencias aplicadas en este dispositivo. El registro remoto quedará pendiente hasta que la migración de consentimientos esté disponible.');
+  }
 
   function handleExport() {
     if (onExport) onExport();
@@ -72,6 +96,16 @@ export function PrivacyAccountPanel({ storageContext, authenticated, onExport, o
         <button type="button" onClick={handleExport} className="mt-3 rounded-full bg-hyrox-gold px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-black">
           Exportar mis datos locales
         </button>
+      </div>
+
+      <div className="rounded-xl border border-sky-300/25 bg-sky-300/5 p-4">
+        <h4 className="font-bold text-sky-100">Consentimientos opcionales de salud e IA</h4>
+        <p className="mt-2 text-sm text-sky-50/75">Puedes otorgarlos o retirarlos en cualquier momento. Retirar salud desactiva también la IA con salud y elimina de la cuenta las categorías de salud gestionadas por esta opción. La retirada no afecta al tratamiento anterior que fuese lícito.</p>
+        <label className="mt-4 flex items-start gap-3 text-sm text-white/80"><input className="mt-1 accent-hyrox-gold" type="checkbox" checked={consents.healthData} onChange={(event) => setConsents({ healthData: event.target.checked, healthDataWithAi: event.target.checked ? consents.healthDataWithAi : false })} /> Autorizo expresamente el tratamiento de mis datos de salud para personalizar el servicio.</label>
+        <label className={`mt-3 flex items-start gap-3 text-sm ${consents.healthData ? 'text-white/80' : 'text-white/40'}`}><input className="mt-1 accent-hyrox-gold" type="checkbox" disabled={!consents.healthData} checked={consents.healthDataWithAi} onChange={(event) => setConsents((current) => ({ ...current, healthDataWithAi: event.target.checked }))} /> Autorizo expresamente comunicar a OpenAI los datos de salud necesarios para planes y consejos.</label>
+        <p className="mt-3 text-xs text-white/55">Más información en la <a className="text-hyrox-gold underline" href="/politica-privacidad">política de privacidad</a>.</p>
+        <button type="button" onClick={() => void handleSaveConsents()} className="mt-4 rounded-full border border-sky-200/40 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-sky-100">Guardar preferencias</button>
+        {consentStatus ? <p role="status" className="mt-3 text-sm font-semibold text-sky-100">{consentStatus}</p> : null}
       </div>
 
       <div className="rounded-xl border border-red-400/30 bg-red-950/20 p-4">

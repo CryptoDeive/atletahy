@@ -33,6 +33,9 @@ import { adaptGeneratedPlanToTrainingWeeks } from './utils/generatedPlanAdapter'
 import { storageContextFor } from './repositories/storageKeys';
 import { isSupabaseConfigured, supabase } from './lib/supabaseClient';
 import type { TrainingTestCategory, TrainingTestId } from './types/tests';
+import { LegalPage, type LegalDocument } from './legal/LegalPage';
+import { canUseHealthDataWithAi, type ConsentChoices, type ConsentRecord } from './legal/consent';
+import { loadConsent, saveConsent } from './legal/consentRepository';
 
 const AccountView = lazy(() => import('./components/account/AccountView').then((module) => ({ default: module.AccountView })));
 const TestsView = lazy(() => import('./components/tests/TestsView').then((module) => ({ default: module.TestsView })));
@@ -48,8 +51,11 @@ function ScreenLoader({ label }: { label: string }) {
   return <div role="status" aria-live="polite" className="mx-auto w-full max-w-7xl px-4 py-5 text-sm font-semibold text-white/70">{label}</div>;
 }
 
-function parseRoute(pathname: string): { view: AppView; mode: RouteMode | null; testId?: TrainingTestId } {
+function parseRoute(pathname: string): { view: AppView; mode: RouteMode | null; testId?: TrainingTestId; legalDocument?: LegalDocument } {
   if (pathname === '/') return { view: 'publicHome', mode: null };
+  if (pathname === '/aviso-legal') return { view: 'publicHome', mode: null, legalDocument: 'notice' };
+  if (pathname === '/politica-privacidad') return { view: 'publicHome', mode: null, legalDocument: 'privacy' };
+  if (pathname === '/politica-cookies') return { view: 'publicHome', mode: null, legalDocument: 'cookies' };
   const match = pathname.match(/^\/(demo|app)\/(trainings|tests|profile|onboarding)(?:\/([^/]+))?\/?$/);
   if (!match) return { view: 'publicHome', mode: null };
   const section = match[2];
@@ -103,6 +109,7 @@ function RoutedApp() {
   const [authFocusSignal, setAuthFocusSignal] = useState(0);
   const [authSession, setAuthSession] = useState<AuthSessionInfo | null>(null);
   const [authResolved, setAuthResolved] = useState(!isSupabaseConfigured);
+  const [consentRecord, setConsentRecord] = useState<ConsentRecord | null>(null);
   const [onboardingBypassed, setOnboardingBypassed] = useState(false);
   const [isOnboardingSaving, setIsOnboardingSaving] = useState(false);
   const hadSessionRef = useRef(false);
@@ -311,6 +318,14 @@ function RoutedApp() {
   }, [storageIdentityKey]);
 
   useEffect(() => {
+    let mounted = true;
+    const refresh = () => { void loadConsent(storageContext).then((record) => { if (mounted) setConsentRecord(record); }); };
+    refresh();
+    window.addEventListener('atletahy:consent-changed', refresh);
+    return () => { mounted = false; window.removeEventListener('atletahy:consent-changed', refresh); };
+  }, [storageContext]);
+
+  useEffect(() => {
     if (!activeUserId) return;
 
     let isMounted = true;
@@ -404,6 +419,11 @@ function RoutedApp() {
     }
   }
 
+  async function handleConsentChange(choices: ConsentChoices) {
+    const { record } = await saveConsent(storageContext, choices);
+    setConsentRecord(record);
+  }
+
   function handleSkipOnboarding() {
     setIsOnboardingSaving(false);
     setOnboardingBypassed(true);
@@ -426,8 +446,9 @@ function RoutedApp() {
     await syncLocalDataToSupabase(activeUserId);
   }
 
-  const isPublicHome = view === 'publicHome';
-  const shellMode = isPublicHome ? 'public' : 'private';
+  const isLegalPage = Boolean(route.legalDocument);
+  const isPublicHome = view === 'publicHome' && !isLegalPage;
+  const shellMode = view === 'publicHome' ? 'public' : 'private';
   if (!authResolved && route.mode === 'app') return <main className="min-h-screen bg-hyrox-black p-8 text-white">Comprobando sesión…</main>;
   return (
     <AppShell
@@ -454,6 +475,7 @@ function RoutedApp() {
           onSessionChange={handleAuthSessionChange}
         />
       ) : null}
+      {route.legalDocument ? <LegalPage document={route.legalDocument} /> : null}
 
       {view === 'account' ? (
         <div className="relative mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-5 sm:py-5 lg:px-8">
@@ -489,6 +511,7 @@ function RoutedApp() {
               if (!dirty) profileBaselineRef.current = null;
             }}
             storageContext={storageContext}
+            healthDataConsentGranted={route.mode === 'demo' || Boolean(consentRecord?.healthData)}
           /></Suspense>
         </div>
       ) : null}
@@ -503,7 +526,7 @@ function RoutedApp() {
         onCategoryChange={(category) => navigate(`${routeForView('tests', route.mode === 'demo' ? 'demo' : 'app')}?category=${encodeURIComponent(category)}`, { replace: true })}
       /></Suspense> : null}
 
-      {shouldRenderOnboarding ? <Suspense fallback={<ScreenLoader label="Cargando configuración inicial…" />}><OnboardingView key={storageIdentityKey} athleteState={athleteState} onComplete={handleCompleteOnboarding} onSkip={handleSkipOnboarding} onSavingChange={setIsOnboardingSaving} draftStorageKey={onboardingDraftStorageKey} onDirtyChange={(dirty) => { if (view === 'onboarding') setDirtyView(dirty ? 'onboarding' : null); }} /></Suspense> : null}
+      {shouldRenderOnboarding ? <Suspense fallback={<ScreenLoader label="Cargando configuración inicial…" />}><OnboardingView key={storageIdentityKey} athleteState={athleteState} onComplete={handleCompleteOnboarding} onConsentChange={handleConsentChange} onSkip={handleSkipOnboarding} onSavingChange={setIsOnboardingSaving} draftStorageKey={onboardingDraftStorageKey} onDirtyChange={(dirty) => { if (view === 'onboarding') setDirtyView(dirty ? 'onboarding' : null); }} /></Suspense> : null}
 
       {view === 'trainings' && !shouldRenderOnboarding ? (
         <div key={storageIdentityKey} className="relative mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-5 sm:py-5 lg:px-8">
@@ -513,6 +536,7 @@ function RoutedApp() {
             recentWorkoutLogs={recentWorkoutLogs}
             userId={activeUserId}
             onboardingIncomplete={onboardingIncomplete}
+            aiConsentGranted={route.mode === 'demo' || canUseHealthDataWithAi(consentRecord)}
             onPlanChange={handlePlanChange}
           /></Suspense>
           <TrainingWorkspace
@@ -529,6 +553,7 @@ function RoutedApp() {
             onSelectDay={setActiveDayId}
             onSaveWorkoutLog={handleSaveWorkoutLog}
             userId={activeUserId}
+            aiConsentGranted={route.mode === 'demo' || canUseHealthDataWithAi(consentRecord)}
           />
         </div>
       ) : null}

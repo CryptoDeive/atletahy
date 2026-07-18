@@ -4,7 +4,9 @@ import { createCoachAdviceHandler } from './coachAdviceHandler';
 
 function setup(overrides: Partial<Parameters<typeof createCoachAdviceHandler>[0]> = {}) {
   const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ output_text: JSON.stringify(validCoachAdvice) }), { status: 200 }));
-  const rpc = vi.fn().mockResolvedValue({ data: [{ allowed: true, remaining: 9, retry_after_seconds: 0 }], error: null });
+  const rpc = vi.fn(async (name: string) => name === 'has_current_ai_health_consent'
+    ? { data: true, error: null }
+    : { data: [{ allowed: true, remaining: 9, retry_after_seconds: 0 }], error: null });
   const handler = createCoachAdviceHandler({
     getEnv: (name) => name === 'SUPABASE_URL' ? 'https://example.supabase.co' : name === 'SUPABASE_PUBLISHABLE_KEY' ? 'key' : name === 'OPENAI_API_KEY' ? 'secret' : undefined,
     createSupabaseClient: () => ({ auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'u1' } }, error: null }) }, rpc }),
@@ -17,6 +19,20 @@ function setup(overrides: Partial<Parameters<typeof createCoachAdviceHandler>[0]
 const request = (input: unknown) => new Request('https://example.com', { method: 'POST', headers: { Authorization: 'Bearer safe', 'Content-Type': 'application/json' }, body: JSON.stringify({ input }) });
 
 describe('coach advice handler hardening', () => {
+  it('fails closed before quota or OpenAI when current health and AI consent is absent', async () => {
+    const fetch = vi.fn();
+    const rpc = vi.fn(async (name: string) => name === 'has_current_ai_health_consent'
+      ? { data: false, error: null }
+      : { data: [{ allowed: true }], error: null });
+    const { handler } = setup({ fetch, createSupabaseClient: () => ({ auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'u1' } }, error: null }) }, rpc }) });
+
+    const response = await handler(request(buildCoachAdviceInput()));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ code: 'CONSENT_REQUIRED' });
+    expect(rpc).not.toHaveBeenCalledWith('consume_ai_quota', expect.anything());
+    expect(fetch).not.toHaveBeenCalled();
+  });
   it('rejects oversized input before auth or OpenAI', async () => {
     const { handler, fetch, rpc } = setup();
     const response = await handler(request({ ...buildCoachAdviceInput(), profile: { ...buildCoachAdviceInput().profile, name: 'x'.repeat(40_000) } }));
@@ -55,7 +71,9 @@ describe('coach advice handler hardening', () => {
   });
 
   it('returns 429 before OpenAI when the atomic quota is exhausted', async () => {
-    const rpc = vi.fn().mockResolvedValue({ data: [{ allowed: false, remaining: 0, retry_after_seconds: 120 }], error: null });
+    const rpc = vi.fn(async (name: string) => name === 'has_current_ai_health_consent'
+      ? { data: true, error: null }
+      : { data: [{ allowed: false, remaining: 0, retry_after_seconds: 120 }], error: null });
     const { handler, fetch } = setup({ createSupabaseClient: () => ({ auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'u1' } }, error: null }) }, rpc }) });
     const response = await handler(request(buildCoachAdviceInput()));
     expect(response.status).toBe(429);

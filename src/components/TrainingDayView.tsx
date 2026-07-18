@@ -16,10 +16,11 @@ interface TrainingDayViewProps {
   coachAdviceKey: string;
   onSaveWorkoutLog: (log: WorkoutLog) => void;
   userId?: string | null;
+  aiConsentGranted?: boolean;
 }
 
 
-export function TrainingDayView({ activeWeek, activeDay, todayKey, savedWorkoutLog, coachAdviceInput, coachAdviceKey, onSaveWorkoutLog, userId = null }: TrainingDayViewProps) {
+export function TrainingDayView({ activeWeek, activeDay, todayKey, savedWorkoutLog, coachAdviceInput, coachAdviceKey, onSaveWorkoutLog, userId = null, aiConsentGranted = true }: TrainingDayViewProps) {
   return (
     <section id="training" className="rounded-2xl border border-white/10 bg-hyrox-panel/85 p-4 sm:p-6">
       <div className="flex flex-col gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-end sm:justify-between">
@@ -45,7 +46,7 @@ export function TrainingDayView({ activeWeek, activeDay, todayKey, savedWorkoutL
       ) : null}
 
       <Suspense fallback={<p role="status" aria-live="polite" className="mt-4 text-sm font-semibold text-white/70">Cargando Coach IA…</p>}>
-        <CoachAdvicePanel coachAdviceInput={coachAdviceInput} adviceKey={coachAdviceKey} userId={userId} />
+        <CoachAdvicePanel coachAdviceInput={coachAdviceInput} adviceKey={coachAdviceKey} userId={userId} aiConsentGranted={aiConsentGranted} />
       </Suspense>
 
       <div className="mt-4 grid gap-3">

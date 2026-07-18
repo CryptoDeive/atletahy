@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -57,6 +57,7 @@ function fillOnboardingUntilFinish() {
   fireEvent.change(screen.getByLabelText('Hora preferida'), { target: { value: 'mañana' } });
   fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
   fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
 }
 
 describe('App onboarding completion persistence', () => {
@@ -90,7 +91,7 @@ describe('App onboarding completion persistence', () => {
     fillOnboardingUntilFinish();
     fireEvent.click(screen.getByRole('button', { name: 'Finalizar' }));
 
-    expect(mocks.saveAthleteState).toHaveBeenCalledWith(
+    await waitFor(() => expect(mocks.saveAthleteState).toHaveBeenCalledWith(
       'user-1',
       expect.objectContaining({
         profile: expect.objectContaining({
@@ -105,11 +106,12 @@ describe('App onboarding completion persistence', () => {
           preferredTrainingTime: 'mañana',
         }),
       }),
-    );
+    ));
     expect(screen.getByRole('heading', { name: 'Configura tu preparación HYROX', level: 2 })).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: /Dashboard semanal/i })).not.toBeInTheDocument();
 
-    resolveSave?.();
+    await waitFor(() => expect(mocks.saveAthleteState).toHaveBeenCalled());
+    await act(async () => { resolveSave?.(); });
     await waitFor(() => expect(screen.getByRole('region', { name: /Dashboard semanal/i })).toBeInTheDocument());
   });
 
@@ -156,13 +158,14 @@ describe('App onboarding completion persistence', () => {
 
     expect(screen.getByRole('heading', { name: 'Configura tu preparación HYROX', level: 2 })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Guardando...' })).toBeDisabled();
-    expect(screen.getByText(/¿Tienes lesión o molestia activa\?/i)).toBeInTheDocument();
+    expect(screen.getByText(/Tú decides sobre tus datos sensibles/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Siguiente' })).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: /Dashboard semanal/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Mi perfil', level: 2 })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Generador de plan IA', level: 2 })).not.toBeInTheDocument();
 
-    resolveSave?.();
+    await waitFor(() => expect(mocks.saveAthleteState).toHaveBeenCalledTimes(1));
+    await act(async () => { resolveSave?.(); });
     await waitFor(() => expect(screen.getByRole('region', { name: /Dashboard semanal/i })).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('link', { name: 'Mi perfil' }));
@@ -190,6 +193,7 @@ describe('App onboarding completion persistence', () => {
     fireEvent.click(screen.getByRole('link', { name: 'Mi perfil' }));
     expect(screen.queryByRole('heading', { name: 'Mi perfil', level: 2 })).not.toBeInTheDocument();
 
+    await waitFor(() => expect(mocks.saveAthleteState).toHaveBeenCalled());
     rejectSave?.(new Error('Supabase unavailable'));
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/no se pudo guardar/i));
 

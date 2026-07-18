@@ -13,6 +13,7 @@ interface PlanGeneratorPanelProps {
   recentWorkoutLogs: WorkoutLog[];
   userId?: string | null;
   onboardingIncomplete?: boolean;
+  aiConsentGranted?: boolean;
   onPlanChange?: (plan: GeneratedTrainingPlan | null, reason: 'load' | 'generation') => void;
 }
 
@@ -26,7 +27,7 @@ function phaseLabel(phase: GenerationPhase) {
   return null;
 }
 
-export function PlanGeneratorPanel({ athleteState, dailyReadiness, recentWorkoutLogs, userId = null, onboardingIncomplete = false, onPlanChange }: PlanGeneratorPanelProps) {
+export function PlanGeneratorPanel({ athleteState, dailyReadiness, recentWorkoutLogs, userId = null, onboardingIncomplete = false, aiConsentGranted = true, onPlanChange }: PlanGeneratorPanelProps) {
   const [storedPlan, setStoredPlan] = useState<StoredTrainingPlan | null>(null);
   const [isLoadingPlan, setIsLoadingPlan] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -85,6 +86,10 @@ export function PlanGeneratorPanel({ athleteState, dailyReadiness, recentWorkout
 
   async function handleGeneratePlan() {
     if (inFlightRef.current || isGenerating) return;
+    if (userId && !aiConsentGranted) {
+      setMessage('Activa el consentimiento opcional de datos de salud e IA desde Mi cuenta antes de usar la IA remota.');
+      return;
+    }
     inFlightRef.current = true;
     setIsGenerating(true);
     resetGenerationFeedback();
@@ -138,7 +143,7 @@ export function PlanGeneratorPanel({ athleteState, dailyReadiness, recentWorkout
             {!plan ? <p className="mt-2 max-w-2xl text-sm font-semibold leading-relaxed text-white/62">Genera un bloque inicial adaptado a tu objetivo, disponibilidad, material y estado actual.</p> : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={() => void handleGeneratePlan()} disabled={isGenerating} className="rounded-full border border-hyrox-gold bg-hyrox-gold px-5 py-3 text-xs font-black uppercase tracking-[0.16em] text-black transition hover:bg-white disabled:cursor-wait disabled:opacity-70">
+            <button type="button" onClick={() => void handleGeneratePlan()} disabled={isGenerating || Boolean(userId && !aiConsentGranted)} className="rounded-full border border-hyrox-gold bg-hyrox-gold px-5 py-3 text-xs font-black uppercase tracking-[0.16em] text-black transition hover:bg-white disabled:cursor-wait disabled:opacity-70">
               {isGenerating ? 'Generando plan...' : plan ? 'Regenerar plan' : 'Generar mi plan con IA'}
             </button>
             {!isGenerating && messageCode ? <button type="button" onClick={() => void handleGeneratePlan()} className="rounded-full border border-white/15 px-4 py-2 text-xs font-black uppercase tracking-[0.16em]">Reintentar</button> : null}
@@ -147,6 +152,7 @@ export function PlanGeneratorPanel({ athleteState, dailyReadiness, recentWorkout
           </div>
         </div>
         {onboardingIncomplete ? <p className="mt-4 rounded-2xl border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm font-semibold text-amber-100">Completa el onboarding para generar un plan más preciso.</p> : null}
+        {userId && !aiConsentGranted ? <p className="mt-4 rounded-2xl border border-sky-300/25 bg-sky-300/10 px-4 py-3 text-sm font-semibold text-sky-100">La IA remota está desactivada: no has autorizado el uso de datos de salud con OpenAI. Puedes cambiarlo en Mi cuenta → Privacidad.</p> : null}
         {(phaseText || message) ? <div role="status" aria-live="polite" aria-atomic="true">
           {phaseText ? <p className="mt-4 text-sm font-semibold text-white/70">{phaseText}</p> : null}
           {message ? <p className="mt-2 text-sm font-semibold text-hyrox-gold">{message}</p> : null}

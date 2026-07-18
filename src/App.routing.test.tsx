@@ -32,6 +32,18 @@ describe('deep routing and protected drafts', () => {
     expect(window.location.pathname).toMatch(/^\/demo\/tests\//);
   });
 
+  it.each([
+    ['/aviso-legal', 'Aviso legal'],
+    ['/politica-privacidad', 'Política de privacidad'],
+    ['/politica-cookies', 'Política de cookies y almacenamiento local'],
+  ])('keeps %s public without redirecting to the home page', async (path, heading) => {
+    window.history.replaceState({}, '', path);
+    render(<App />);
+
+    expect(await screen.findByRole('heading', { name: heading, level: 1 })).toBeInTheDocument();
+    expect(window.location.pathname).toBe(path);
+  });
+
   it('restores profile tabs and test filters from a non-sensitive query string', async () => {
     window.history.replaceState({}, '', '/demo/profile?tab=nutrition');
     render(<App />);

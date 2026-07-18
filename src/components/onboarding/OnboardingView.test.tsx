@@ -39,12 +39,42 @@ function buildCompletableAthleteState(overrides: Partial<AthleteState> = {}): At
 }
 
 function goToLastStep() {
-  for (let index = 0; index < 4; index += 1) {
+  for (let index = 0; index < 5; index += 1) {
     fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
   }
 }
 
 describe('OnboardingView finish flow', () => {
+  it('never writes health data to the session draft before explicit health consent', async () => {
+    const key = 'onboarding-sensitive-draft';
+    render(<OnboardingView athleteState={buildCompletableAthleteState()} onComplete={vi.fn()} onSkip={vi.fn()} draftStorageKey={key} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /5\.\s*Lesiones/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Sí' }));
+    fireEvent.change(screen.getByLabelText('Zona'), { target: { value: 'rodilla-secreta' } });
+
+    await waitFor(() => expect(window.sessionStorage.getItem(key)).not.toContain('rodilla-secreta'));
+    const stored = JSON.parse(window.sessionStorage.getItem(key) ?? '{}');
+    expect(stored.injuries).toBeUndefined();
+    expect(stored.nutrition).toBeUndefined();
+    expect(stored.physiology?.restingHrBaseline).toBeUndefined();
+  });
+  it('requests health and AI consent separately without preselecting either choice', () => {
+    render(<OnboardingView athleteState={buildCompletableAthleteState()} onComplete={vi.fn()} onSkip={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /6\.\s*Privacidad/i }));
+    expect(screen.getByLabelText(/traten mis datos de salud/i)).not.toBeChecked();
+    expect(screen.getByLabelText(/comuniquen a OpenAI/i)).not.toBeChecked();
+  });
+
+  it('does not allow AI consent unless health-data processing is also accepted', () => {
+    render(<OnboardingView athleteState={buildCompletableAthleteState()} onComplete={vi.fn()} onSkip={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /6\.\s*Privacidad/i }));
+    expect(screen.getByLabelText(/comuniquen a OpenAI/i)).toBeDisabled();
+    fireEvent.click(screen.getByLabelText(/traten mis datos de salud/i));
+    expect(screen.getByLabelText(/comuniquen a OpenAI/i)).toBeEnabled();
+  });
   it('renders Spanish copy without placeholder characters or mojibake', () => {
     render(<OnboardingView athleteState={buildAthleteState()} onComplete={vi.fn()} onSkip={vi.fn()} />);
 
@@ -215,7 +245,7 @@ describe('OnboardingView finish flow', () => {
     expect(onComplete).toHaveBeenCalledTimes(1);
     expect(onSkip).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Guardando...' })).toBeDisabled();
-    expect(screen.getByText(/¿Tienes lesión o molestia activa\?/i)).toBeInTheDocument();
+    expect(screen.getByText(/Tú decides sobre tus datos sensibles/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Siguiente' })).not.toBeInTheDocument();
 
     resolveCompletion?.();

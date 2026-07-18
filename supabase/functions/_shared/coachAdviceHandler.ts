@@ -1,6 +1,7 @@
 import { coachAdviceJsonSchema, validateCoachAdvice } from './coachAdviceSchema.ts';
 import { applyCoachSafetyOverrides, evaluateTrainingSafety } from './trainingSafety.ts';
 import { extractResponsesApiText, isAbortError } from './trainingPlanResponse.ts';
+import { hasCurrentAiHealthConsent } from './aiConsentGuard.ts';
 
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Max-Age': '86400' };
 export const COACH_MAX_INPUT_BYTES = 32 * 1024;
@@ -202,6 +203,10 @@ export function createCoachAdviceHandler({ getEnv, createSupabaseClient, fetch =
       const auth = await client.auth.getUser();
       if (auth.error || !auth.data.user) return response({ error: 'Sesión no válida.', code: 'AUTH_REQUIRED' }, 401);
     } catch { return response({ error: 'No se pudo validar la sesión.', code: 'OPENAI_ERROR' }, 500); }
+
+    if (!await hasCurrentAiHealthConsent(client)) {
+      return response({ error: 'Se requiere consentimiento vigente para usar datos de salud con IA.', code: 'CONSENT_REQUIRED' }, 403);
+    }
 
     try {
       const quota = await client.rpc('consume_ai_quota', { p_feature: 'coach_advice' });

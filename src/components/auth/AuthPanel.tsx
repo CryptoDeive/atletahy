@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 import { AuthStatus } from './AuthStatus';
 import { logUiError, normalizeUiError } from '../../errors/uiError';
+import { buildSignupLegalMetadata } from '../../legal/consent';
 
 export type AuthMode = 'login' | 'register';
 
@@ -38,6 +39,8 @@ export function AuthPanel({ onSessionChange, preferredMode = 'login', focusSigna
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>(preferredMode);
+  const [isAdult, setIsAdult] = useState(false);
+  const [acceptsLegal, setAcceptsLegal] = useState(false);
   const emailInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -105,6 +108,10 @@ export function AuthPanel({ onSessionChange, preferredMode = 'login', focusSigna
 
   async function handleRegister() {
     setAuthMode('register');
+    if (!isAdult || !acceptsLegal) {
+      setMessage('Para crear la cuenta debes confirmar que tienes 18 años y aceptar las condiciones y la política de privacidad.');
+      return;
+    }
     if (!supabase) {
       setMessage(publicFacing ? 'El registro no está disponible en este momento.' : 'Supabase no está configurado. Puedes ver la demo del plan en modo local.');
       return;
@@ -112,7 +119,11 @@ export function AuthPanel({ onSessionChange, preferredMode = 'login', focusSigna
 
     setIsSubmitting(true);
     setMessage(null);
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: buildSignupLegalMetadata() },
+    });
     setIsSubmitting(false);
 
     if (error) {
@@ -142,8 +153,15 @@ export function AuthPanel({ onSessionChange, preferredMode = 'login', focusSigna
     setMessage(publicFacing ? 'Sesión cerrada.' : 'Sesión cerrada. La app sigue disponible en modo local.');
   }
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (authMode === 'register') void handleRegister();
+    else void handleLogin();
+  }
+
   const form = (
-    <form onSubmit={handleLogin} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+    <form onSubmit={handleSubmit} className="grid gap-3">
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
       <label className="block">
         <span className="sr-only">Email</span>
         <input
@@ -182,8 +200,8 @@ export function AuthPanel({ onSessionChange, preferredMode = 'login', focusSigna
         </button>
         <button
           type="button"
-          onClick={handleRegister}
-          disabled={isSubmitting || Boolean(supabase && (!email || password.length < 6))}
+          onClick={() => authMode === 'register' ? void handleRegister() : setAuthMode('register')}
+          disabled={isSubmitting || Boolean(authMode === 'register' && supabase && (!email || password.length < 6 || !isAdult || !acceptsLegal))}
           className={`rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.16em] transition disabled:opacity-50 ${
             authMode === 'register' ? 'border-hyrox-gold bg-hyrox-gold text-black hover:bg-white' : 'border-white/15 bg-white/[0.04] text-white hover:border-hyrox-gold hover:text-hyrox-gold'
           }`}
@@ -191,6 +209,15 @@ export function AuthPanel({ onSessionChange, preferredMode = 'login', focusSigna
           {publicFacing ? 'Crear cuenta' : 'Registrarme'}
         </button>
       </div>
+      </div>
+      {authMode === 'register' ? (
+        <div className="grid gap-2 rounded-xl border border-white/10 bg-white/[0.025] p-3 text-xs font-semibold leading-relaxed text-white/70">
+          <p>Información básica: responsable {`SOLUCIONES DE IA Y SEGURIDAD DAVID GONZALEZ ARMAS, S.L.`}; tratamos tus datos para crear y prestar la cuenta. Puedes ejercer tus derechos en david@davidgonzalezarmas.com.</p>
+          <label className="flex items-start gap-2"><input className="mt-1 accent-hyrox-gold" type="checkbox" checked={isAdult} onChange={(event) => setIsAdult(event.target.checked)} /> Confirmo que tengo 18 años o más.</label>
+          <label className="flex items-start gap-2"><input className="mt-1 accent-hyrox-gold" type="checkbox" checked={acceptsLegal} onChange={(event) => setAcceptsLegal(event.target.checked)} /> <span>He leído y acepto el <a className="text-hyrox-gold underline" href="/aviso-legal">aviso legal</a> y la <a className="text-hyrox-gold underline" href="/politica-privacidad">política de privacidad</a>.</span></label>
+          <p>Los consentimientos opcionales para datos de salud e IA se pedirán por separado durante la configuración.</p>
+        </div>
+      ) : null}
     </form>
   );
 

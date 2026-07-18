@@ -7,6 +7,7 @@ import {
 import { validatePlanGenerationInput } from './trainingPlanInput.ts';
 import { extractResponsesApiText, isAbortError } from './trainingPlanResponse.ts';
 import { applyPlanSafetyOverrides, evaluateTrainingSafety } from './trainingSafety.ts';
+import { hasCurrentAiHealthConsent } from './aiConsentGuard.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -177,6 +178,10 @@ export function createTrainingPlanHandler({
       return fail('AUTH_REQUIRED', 401, 'Sesión no válida.');
     }
     emit('auth_ok');
+
+    if (!await hasCurrentAiHealthConsent(supabase)) {
+      return fail('CONSENT_REQUIRED', 403, 'Se requiere consentimiento vigente para usar datos de salud con IA.');
+    }
 
     let quotaData: unknown;
     try {

@@ -18,7 +18,9 @@ function createDeps(overrides: Partial<Parameters<typeof createTrainingPlanHandl
           auth: {
             getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null }),
           },
-          rpc: vi.fn().mockResolvedValue({ data: [{ allowed: true, remaining: 2, retry_after_seconds: 0 }], error: null }),
+          rpc: vi.fn(async (name: string) => name === 'has_current_ai_health_consent'
+            ? { data: true, error: null }
+            : { data: [{ allowed: true, remaining: 2, retry_after_seconds: 0 }], error: null }),
         };
       },
       fetch: vi.fn().mockResolvedValue(new Response(JSON.stringify({ output_text: JSON.stringify(validGeneratedTrainingPlan) }), {
@@ -35,6 +37,19 @@ function createDeps(overrides: Partial<Parameters<typeof createTrainingPlanHandl
 }
 
 describe('createTrainingPlanHandler', () => {
+  it('fails closed before quota or OpenAI when current health and AI consent is absent', async () => {
+    const fetch = vi.fn();
+    const rpc = vi.fn(async (name: string) => name === 'has_current_ai_health_consent'
+      ? { data: false, error: null }
+      : { data: [{ allowed: true }], error: null });
+    const { handler } = createDeps({ fetch, createSupabaseClient: () => ({ auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'u1' } }, error: null }) }, rpc }) });
+    const response = await handler(new Request('https://example.com', { method: 'POST', headers: { Authorization: 'Bearer safe-token', 'Content-Type': 'application/json' }, body: JSON.stringify({ input: validPlanGenerationInput }) }));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ code: 'CONSENT_REQUIRED' });
+    expect(rpc).not.toHaveBeenCalledWith('consume_ai_quota', expect.anything());
+    expect(fetch).not.toHaveBeenCalled();
+  });
   beforeEach(() => {
     vi.useFakeTimers();
   });
@@ -222,7 +237,9 @@ describe('createTrainingPlanHandler', () => {
       fetch,
       createSupabaseClient: () => ({
         auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'u1' } }, error: null }) },
-        rpc: vi.fn().mockResolvedValue({ data: [{ allowed: false, remaining: 0, retry_after_seconds: 300 }], error: null }),
+        rpc: vi.fn(async (name: string) => name === 'has_current_ai_health_consent'
+          ? { data: true, error: null }
+          : { data: [{ allowed: false, remaining: 0, retry_after_seconds: 300 }], error: null }),
       }),
     });
     const response = await handler(new Request('https://example.com', {

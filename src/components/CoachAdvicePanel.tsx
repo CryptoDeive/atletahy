@@ -9,6 +9,7 @@ interface CoachAdvicePanelProps {
   adviceKey: string;
   latestAdvice?: CoachAdvice | null;
   userId?: string | null;
+  aiConsentGranted?: boolean;
 }
 
 type AdviceUiStatus = 'idle' | 'generated' | 'loaded' | 'updated';
@@ -110,7 +111,7 @@ function ListBlock({ title, items }: { title: string; items: string[] }) {
   );
 }
 
-export function CoachAdvicePanel({ coachAdviceInput, adviceKey, latestAdvice = null, userId = null }: CoachAdvicePanelProps) {
+export function CoachAdvicePanel({ coachAdviceInput, adviceKey, latestAdvice = null, userId = null, aiConsentGranted = true }: CoachAdvicePanelProps) {
   const [rawAdvice, setAdvice] = useState<CoachAdvice | null>(latestAdvice);
   const [adviceSource, setAdviceSource] = useState<CoachAdviceSource>('local');
   const [sourceError, setSourceError] = useState<string | null>(null);
@@ -153,6 +154,10 @@ export function CoachAdvicePanel({ coachAdviceInput, adviceKey, latestAdvice = n
   }, [adviceKey, latestAdvice, userId]);
 
   async function handleGenerateAdvice() {
+    if (userId && !aiConsentGranted) {
+      setSourceError('Activa el consentimiento opcional de salud e IA desde Mi cuenta antes de usar la IA remota.');
+      return;
+    }
     const hadAdvice = Boolean(advice);
     setIsGenerating(true);
     setFeedbackMessage(null);
@@ -266,7 +271,7 @@ export function CoachAdvicePanel({ coachAdviceInput, adviceKey, latestAdvice = n
           <button
             type="button"
             onClick={handleGenerateAdvice}
-            disabled={isGenerating}
+            disabled={isGenerating || Boolean(userId && !aiConsentGranted)}
             className="rounded-full border border-hyrox-gold bg-hyrox-gold px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-black transition hover:bg-white disabled:cursor-wait disabled:opacity-70"
           >
             {isGenerating ? 'Generando...' : advice ? 'Regenerar consejo' : 'Generar consejo'}

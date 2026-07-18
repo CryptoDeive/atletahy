@@ -20,6 +20,7 @@ interface TrainingWorkspaceProps {
   onSelectDay: (dayId: TrainingDayId) => void;
   onSaveWorkoutLog: (log: WorkoutLog) => void;
   userId: string | null;
+  aiConsentGranted?: boolean;
 }
 
 export function TrainingWorkspace({
@@ -36,6 +37,7 @@ export function TrainingWorkspace({
   onSelectDay,
   onSaveWorkoutLog,
   userId,
+  aiConsentGranted = true,
 }: TrainingWorkspaceProps) {
   const workoutLogValues = Object.values(workoutLogs);
 
@@ -72,6 +74,7 @@ export function TrainingWorkspace({
         coachAdviceKey={coachAdviceKey}
         onSaveWorkoutLog={onSaveWorkoutLog}
         userId={userId}
+        aiConsentGranted={aiConsentGranted}
       />
     </>
   );
