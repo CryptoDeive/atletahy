@@ -337,7 +337,10 @@ describe('HYROX Planner UI', () => {
 
     fireEvent.change(await screen.findByLabelText('Nombre'), { target: { value: 'Deivi' } });
     fireEvent.change(screen.getByLabelText('Fecha de nacimiento'), { target: { value: '1990-05-10' } });
-    fireEvent.change(screen.getByLabelText('Peso (kg)'), { target: { value: '78' } });
+    const weight = screen.getByLabelText('Peso (kg)');
+    fireEvent.focus(weight);
+    fireEvent.change(weight, { target: { value: '78 kg' } });
+    fireEvent.keyDown(weight, { key: 'Enter' });
     fireEvent.change(screen.getByLabelText('Fecha objetivo'), { target: { value: '2026-11-22' } });
     fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
 
@@ -359,11 +362,11 @@ describe('HYROX Planner UI', () => {
     fireEvent.change(screen.getByLabelText('Notas del check-in'), { target: { value: 'Piernas frescas.' } });
     fireEvent.click(screen.getByRole('button', { name: 'Guardar check-in' }));
 
-    expect(screen.getByText('Check-in guardado para hoy.')).toBeInTheDocument();
+    expect(await screen.findByText('Check-in guardado para hoy.')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Piernas frescas.')).toBeInTheDocument();
   });
 
-  it('saves a workout log from the active training view', () => {
+  it('saves a workout log from the active training view', async () => {
     renderDemoApp();
 
     expect(screen.getByRole('heading', { name: 'Registro del entrenamiento', level: 3 })).toBeInTheDocument();
@@ -379,7 +382,7 @@ describe('HYROX Planner UI', () => {
     fireEvent.change(screen.getByLabelText('Qué fue bien'), { target: { value: 'Ritmo estable.' } });
     fireEvent.click(screen.getByRole('button', { name: 'Guardar registro' }));
 
-    expect(screen.getByText('Registro guardado')).toBeInTheDocument();
+    expect(await screen.findByText('Registro guardado')).toBeInTheDocument();
     expect(screen.getByText('62 min')).toBeInTheDocument();
     expect(screen.getByText('RPE 8')).toBeInTheDocument();
     expect(screen.getByText('95% completado')).toBeInTheDocument();
@@ -446,6 +449,29 @@ describe('HYROX Planner UI', () => {
     expect(within(region).queryByRole('button', { name: /abrir coach ia|cerrar coach ia/i })).not.toBeInTheDocument();
     expect(screen.getByText('Genera una estrategia personalizada para este entrenamiento.')).toBeInTheDocument();
     expect(screen.queryByText(/Resumen/i)).not.toBeInTheDocument();
+  });
+
+  it('does not announce profile save when a combobox shows an unselected value', async () => {
+    renderDemoApp();
+    fireEvent.click(screen.getByRole('link', { name: 'Mi perfil' }));
+    const height = await screen.findByRole('combobox', { name: 'Altura (cm)' });
+    fireEvent.change(height, { target: { value: '999' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+    expect(height).toHaveAttribute('aria-invalid', 'true');
+    expect(height).toHaveAttribute('aria-describedby');
+    expect(screen.queryByText('Cambios guardados')).not.toBeInTheDocument();
+    expect((await screen.findAllByRole('alert')).some((alert) => /altura|selecciona/i.test(alert.textContent ?? ''))).toBe(true);
+  });
+
+  it('links a profile schema error to the first invalid field', async () => {
+    renderDemoApp();
+    fireEvent.click(screen.getByRole('link', { name: 'Mi perfil' }));
+    const targetDate = await screen.findByLabelText('Fecha objetivo');
+    fireEvent.change(targetDate, { target: { value: '2020-01-01' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+    expect(targetDate).toHaveAttribute('aria-invalid', 'true');
+    expect(targetDate).toHaveAttribute('aria-describedby');
+    expect(screen.queryByText('Cambios guardados')).not.toBeInTheDocument();
   });
 
   it('opens Coach IA after generating advice', async () => {

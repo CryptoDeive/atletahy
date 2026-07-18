@@ -1,4 +1,5 @@
 import type { Database, Json } from '../../types/database';
+import { validateTrainingTestResult } from '../../domain/fields/schemas';
 import type { TrainingTestId, TrainingTestResult } from '../../types/tests';
 import { getSupabaseClient, warnSupabaseError } from './supabaseRepositoryUtils';
 
@@ -36,6 +37,8 @@ export async function getTrainingTestResultsFromSupabase(userId: string, testId?
 }
 
 export async function saveTrainingTestResultToSupabase(userId: string, result: TrainingTestResult): Promise<TrainingTestResult> {
+  const validation = validateTrainingTestResult(result.testId, result.performedAt.slice(0, 10), result.result); if (!validation.ok) throw new Error(validation.issues[0]?.message ?? 'Resultado no válido.');
+  result = { ...result, result: validation.value, notes: result.notes?.trim() };
   const client = getSupabaseClient();
   if (!client) return result;
   const { data, error } = await client.from('training_test_results').upsert({

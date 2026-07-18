@@ -27,6 +27,7 @@ function buildCompletableAthleteState(overrides: Partial<AthleteState> = {}): At
     profile: {
       targetDate: '2026-11-22',
       mainGoal: 'competir',
+      hyroxCategory: 'women_open',
       ...overrides.profile,
     },
     availability: {

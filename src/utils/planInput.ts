@@ -1,3 +1,4 @@
+import { validateWorkoutLog } from '../domain/fields/schemas';
 import type { AthleteState, DailyReadiness, EquipmentAvailability, Injury, WorkoutLog, WorkoutLogStatus } from '../types/athlete';
 
 export { validatePlanGenerationInput } from '../../supabase/functions/_shared/trainingPlanInput';
@@ -73,7 +74,7 @@ function signalScore(log: WorkoutLog) {
     log.sessionRpe1To10 !== '',
     log.averageHr !== '',
     log.maxHr !== '',
-    log.calories !== '',
+    typeof log.calories === 'number',
     log.completionPercent !== '',
     log.notes.trim().length > 0,
     log.wentWell.trim().length > 0,
@@ -94,7 +95,7 @@ function sanitizeWorkoutLog(log: WorkoutLog): WorkoutLog {
 }
 
 function isMeaningfulWorkoutLog(log: WorkoutLog) {
-  return log.date.length > 0 && log.weekId.length > 0 && log.dayId.length > 0 && signalScore(log) > 0;
+  return log.date.length > 0 && log.weekId.length > 0 && log.dayId.length > 0 && signalScore(log) > 1;
 }
 
 export function selectRelevantWorkoutLogs(recentWorkoutLogs: WorkoutLog[]) {
@@ -102,7 +103,7 @@ export function selectRelevantWorkoutLogs(recentWorkoutLogs: WorkoutLog[]) {
 
   for (const originalLog of recentWorkoutLogs) {
     const log = sanitizeWorkoutLog(originalLog);
-    if (!isMeaningfulWorkoutLog(log)) continue;
+    if (!isMeaningfulWorkoutLog(log) || !validateWorkoutLog(log).ok) continue;
 
     const key = workoutLogKey(log);
     const current = deduped.get(key);

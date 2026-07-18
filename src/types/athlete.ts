@@ -1,17 +1,21 @@
 ﻿import type { TrainingDay, TrainingWeek } from './training';
+import type { HyroxCategory } from '../domain/fields/options';
+import type { LegacyValue } from '../domain/fields/legacy';
 
 export type MainGoal = 'terminar' | 'mejorar_marca' | 'competir';
 export type InjuryStatus = 'active' | 'improving' | 'resolved';
 export type WorkoutLogStatus = 'completado' | 'parcial' | 'saltado' | 'adaptado';
 export type NutritionGoal = 'rendimiento' | 'mantenimiento' | 'perdida_grasa';
+export type AthleteSex = 'female' | 'male' | 'other' | '';
 
 export interface AthleteProfile {
   name: string;
   birthDate: string;
   heightCm: number | '';
   weightKg: number | '';
-  sex?: string;
-  hyroxCategory: string;
+  sex?: AthleteSex;
+  hyroxCategory: HyroxCategory | '';
+  hyroxCategoryLegacy?: LegacyValue;
   targetDate: string;
   mainGoal: MainGoal;
   targetTime?: string;
@@ -76,6 +80,7 @@ export interface Injury {
 export interface NutritionPreferences {
   goal: NutritionGoal;
   dietType: string;
+  dietTypeLegacy?: LegacyValue;
   allergies: string;
   intolerances: string;
   caffeineTolerance: string;

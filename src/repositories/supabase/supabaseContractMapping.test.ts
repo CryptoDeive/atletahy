@@ -55,4 +55,16 @@ describe('Supabase repository contract mapping', () => {
     expect(coachAdvice + databaseTypes).not.toContain('select(\'advice\')');
     expect(coachAdvice + databaseTypes).not.toContain('\n  advice:');
   });
+
+  it('does not hide historical readiness, workout or test rows with strict write validators', () => {
+    const readiness = readSource('src/repositories/supabase/supabaseReadinessRepository.ts');
+    const workouts = readSource('src/repositories/supabase/supabaseWorkoutLogRepository.ts');
+    const tests = readSource('src/repositories/supabase/supabaseTrainingTestRepository.ts');
+    expect(readiness).not.toMatch(/return\s+validateDailyReadiness/);
+    expect(workouts).not.toMatch(/\.filter\([^\n]*validateWorkoutLog/);
+    expect(tests).not.toMatch(/\.filter\([^\n]*validateTrainingTestResult/);
+    expect(readiness).toContain('return mapReadiness(data)');
+    expect(workouts).toContain('.map(mapWorkoutLog)');
+    expect(tests).toContain('.map(mapResult)');
+  });
 });

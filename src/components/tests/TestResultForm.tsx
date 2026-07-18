@@ -4,6 +4,7 @@ import {
   calculateAverageSpeedKmh, calculateConcept2Watts, calculateEstimatedFtp, calculatePacePer500m,
   calculatePacePerKm, calculateVam, calculateWattsPerKg, formatSecondsAsDuration, parseDurationToSeconds,
 } from '../../utils/testCalculations';
+import { validateTrainingTestResult } from '../../domain/fields/schemas';
 
 type Props = {
   test: TrainingTestDefinition;
@@ -98,14 +99,19 @@ export function TestResultForm({ test, athleteWeightKg, onSave }: Props) {
       const value = values[field.key] ?? '';
       resultValues[field.key] = field.type === 'number' ? (value ? Number(value) : null) : field.type === 'boolean' ? value === 'true' : value;
     }
+    const validation = validateTrainingTestResult(test.id, performedAt, resultValues);
+    if (!validation.ok) {
+      const issue = validation.issues[0]; setInvalidField(issue?.path ?? null); setError(issue?.message ?? 'Revisa los datos del test.'); setStatus('idle');
+      if (issue?.path) document.getElementById(`${formId}-${issue.path}`)?.focus(); return;
+    }
     try {
       await onSave({
         id: globalThis.crypto?.randomUUID?.() ?? `test-${Date.now()}`,
         testId: test.id,
         performedAt: new Date(`${performedAt}T12:00:00`).toISOString(),
-        result: resultValues,
+        result: validation.value,
         calculated: preview,
-        notes: values.notes ?? '',
+        notes: (values.notes ?? '').trim(),
         createdAt: now,
         updatedAt: now,
       });
@@ -128,7 +134,7 @@ export function TestResultForm({ test, athleteWeightKg, onSave }: Props) {
             {field.type === 'select' ? <select id={`${formId}-${field.key}`} aria-label={field.label} aria-invalid={invalidField === field.key} aria-describedby={invalidField === field.key ? errorId : undefined} className={inputClass} value={values[field.key] ?? ''} onChange={(event) => update(field.key, event.target.value)}><option value="">Selecciona</option>{field.options?.map((option) => <option key={option}>{option}</option>)}</select>
               : field.type === 'boolean' ? <select id={`${formId}-${field.key}`} aria-label={field.label} className={inputClass} value={values[field.key] ?? 'false'} onChange={(event) => update(field.key, event.target.value)}><option value="true">Sí</option><option value="false">No</option></select>
               : field.type === 'textarea' ? <textarea id={`${formId}-${field.key}`} aria-label={field.label} aria-invalid={invalidField === field.key} aria-describedby={invalidField === field.key ? errorId : undefined} className={`${inputClass} min-h-20 resize-y`} value={values[field.key] ?? ''} onChange={(event) => update(field.key, event.target.value)} />
-              : <input id={`${formId}-${field.key}`} aria-label={field.label} aria-invalid={invalidField === field.key} aria-describedby={invalidField === field.key ? errorId : undefined} className={inputClass} type={field.type === 'number' ? 'number' : 'text'} min={field.min} step={field.step} placeholder={field.placeholder} value={values[field.key] ?? ''} readOnly={test.id === 'jim-vance-30' && field.key === 'blockMinutes'} onChange={(event) => update(field.key, event.target.value)} />}
+              : <input id={`${formId}-${field.key}`} aria-label={field.label} aria-invalid={invalidField === field.key} aria-describedby={invalidField === field.key ? errorId : undefined} className={inputClass} type={field.type === 'number' ? 'number' : 'text'} min={field.min} max={field.max} step={field.step} placeholder={field.placeholder} value={values[field.key] ?? ''} readOnly={test.id === 'jim-vance-30' && field.key === 'blockMinutes'} onChange={(event) => update(field.key, event.target.value)} />}
           </label>
         ))}
       </div>

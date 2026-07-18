@@ -25,8 +25,8 @@ describe('local repositories', () => {
       physiology: { ...defaultPhysiologyMetrics, restingHrBaseline: 48 },
       availability: { ...defaultTrainingAvailability, availableDays: ['Lunes', 'Miércoles'] },
       equipment: { ...defaultEquipmentAvailability, skiErg: true, sled: true },
-      injuries: [{ id: 'injury-1', body_area: 'rodilla', side: 'derecha', pain_level_0_10: 2, status: 'improving', movement_restrictions: '', notes: '' }],
-      nutrition: { ...defaultNutritionPreferences, dietType: 'omnivora' },
+      injuries: [{ id: 'injury-1', body_area: 'Rodilla', side: 'right', pain_level_0_10: 2, status: 'improving', movement_restrictions: '', notes: '' }],
+      nutrition: { ...defaultNutritionPreferences, dietType: 'omnivore' },
     };
 
     await saveAthleteState(athleteState);
@@ -138,6 +138,17 @@ describe('local repositories', () => {
 
     await expect(getDailyReadiness('2026-07-08')).resolves.toEqual(readiness);
     await expect(getDailyReadiness('2026-07-09')).resolves.toBeNull();
+  });
+
+  it('keeps legacy workout and readiness records visible while rejecting them on write', async () => {
+    const legacyWorkout = { id: 'legacy', date: '2026-07-08', weekId: 'w', dayId: 'd', status: 'old-status', durationMinutes: 12.5, sessionRpe1To10: 20, averageHr: '', maxHr: '', completionPercent: 73, notes: 'Histórico', wentWell: '', wentWrong: '' };
+    const legacyReadiness = { date: '2026-07-08', sleepHours: 30, sleepQuality1To5: 9, stress1To5: 9, fatigue1To5: 9, muscleSoreness1To5: 9, legSoreness1To5: 9, upperSoreness1To5: 9, motivation1To5: 9, hydration1To5: 9, pain0To10: 11, painLocation: '', notes: 'Histórico' };
+    localStorage.setItem('atletahy:guest:workout-logs', JSON.stringify({ legacy: legacyWorkout }));
+    localStorage.setItem('atletahy:guest:daily-readiness', JSON.stringify({ '2026-07-08': legacyReadiness }));
+    await expect(getWorkoutLogs()).resolves.toContainEqual(legacyWorkout);
+    await expect(getDailyReadiness('2026-07-08')).resolves.toEqual(legacyReadiness);
+    await expect(saveWorkoutLog(legacyWorkout as never)).rejects.toThrow();
+    await expect(saveDailyReadiness(legacyReadiness as never)).rejects.toThrow();
   });
 
   it('saves and gets coach advice by key', async () => {

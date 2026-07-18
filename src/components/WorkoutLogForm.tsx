@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { createDefaultWorkoutLog } from '../data/defaultAthleteState';
 import type { WorkoutLog } from '../types/athlete';
 import type { TrainingDay, TrainingWeek } from '../types/training';
+import { validateWorkoutLog } from '../domain/fields/schemas';
 
 interface WorkoutLogFormProps {
   activeWeek: TrainingWeek;
   activeDay: TrainingDay;
   date: string;
   savedLog: WorkoutLog | null;
-  onSave: (log: WorkoutLog) => void;
+  onSave: (log: WorkoutLog) => Promise<void> | void;
 }
 
 function toNumberOrEmpty(value: string) {
@@ -32,6 +33,9 @@ export function WorkoutLogForm({ activeWeek, activeDay, date, savedLog, onSave }
   );
   const [savedMessage, setSavedMessage] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [error, setError] = useState('');
+  const [invalidPath, setInvalidPath] = useState<string | null>(null);
+  const errorId = 'workout-log-error';
 
   useEffect(() => {
     setLog(savedLog ?? createDefaultWorkoutLog({ id: createLogId(activeWeek.id, activeDay.id, date), date, weekId: activeWeek.id, dayId: activeDay.id }));
@@ -47,9 +51,10 @@ export function WorkoutLogForm({ activeWeek, activeDay, date, savedLog, onSave }
   function update<K extends keyof WorkoutLog>(key: K, value: WorkoutLog[K]) {
     setSavedMessage(false);
     setLog((current) => ({ ...current, [key]: value }));
+    if (invalidPath === key) { setInvalidPath(null); setError(''); }
   }
 
-  function saveLog() {
+  async function saveLog() {
     const normalizedLog = {
       ...log,
       id: log.id || createLogId(activeWeek.id, activeDay.id, date),
@@ -57,8 +62,12 @@ export function WorkoutLogForm({ activeWeek, activeDay, date, savedLog, onSave }
       weekId: activeWeek.id,
       dayId: activeDay.id,
     };
-    onSave(normalizedLog);
-    setLog(normalizedLog);
+    const validation = validateWorkoutLog(normalizedLog);
+    if (!validation.ok) { const issue = validation.issues[0]; setInvalidPath(issue?.path ?? null); setError(issue?.message ?? 'Revisa el registro.'); setTimeout(() => document.getElementById(`workout-${issue?.path}`)?.focus(), 0); return; }
+    setError('');
+    setInvalidPath(null);
+    await onSave(validation.value);
+    setLog(validation.value);
     setSavedMessage(true);
   }
 
@@ -100,7 +109,7 @@ export function WorkoutLogForm({ activeWeek, activeDay, date, savedLog, onSave }
           <div className="grid gap-3 md:grid-cols-3">
             <label className="block">
               <span className={labelClass}>Estado del entrenamiento</span>
-              <select className={fieldClass} value={log.status} onChange={(event) => update('status', event.target.value as WorkoutLog['status'])}>
+              <select id="workout-status" aria-label="Estado del entrenamiento" aria-invalid={invalidPath === 'status'} aria-describedby={invalidPath === 'status' ? errorId : undefined} className={fieldClass} value={log.status} onChange={(event) => update('status', event.target.value as WorkoutLog['status'])}>
                 <option value="completado">Completado</option>
                 <option value="parcial">Parcial</option>
                 <option value="saltado">Saltado</option>
@@ -109,39 +118,40 @@ export function WorkoutLogForm({ activeWeek, activeDay, date, savedLog, onSave }
             </label>
             <label className="block">
               <span className={labelClass}>Duración (min)</span>
-              <input className={fieldClass} type="number" min={0} value={log.durationMinutes} onChange={(event) => update('durationMinutes', toNumberOrEmpty(event.target.value))} />
+              <input id="workout-durationMinutes" aria-label="Duración (min)" aria-invalid={invalidPath === 'durationMinutes'} aria-describedby={invalidPath === 'durationMinutes' ? errorId : undefined} className={fieldClass} type="number" min={log.status === 'saltado' ? 0 : 1} max={600} step={1} value={log.durationMinutes} onChange={(event) => update('durationMinutes', toNumberOrEmpty(event.target.value))} />
             </label>
             <label className="block">
               <span className={labelClass}>RPE sesión (1-10)</span>
-              <input className={fieldClass} type="number" min={1} max={10} value={log.sessionRpe1To10} onChange={(event) => update('sessionRpe1To10', toNumberOrEmpty(event.target.value))} />
+              <input id="workout-sessionRpe1To10" aria-label="RPE sesión (1-10)" aria-invalid={invalidPath === 'sessionRpe1To10'} aria-describedby={invalidPath === 'sessionRpe1To10' ? errorId : undefined} className={fieldClass} type="number" min={1} max={10} step={1} value={log.sessionRpe1To10} onChange={(event) => update('sessionRpe1To10', toNumberOrEmpty(event.target.value))} />
             </label>
             <label className="block">
               <span className={labelClass}>FC media</span>
-              <input className={fieldClass} type="number" min={0} value={log.averageHr} onChange={(event) => update('averageHr', toNumberOrEmpty(event.target.value))} />
+              <input id="workout-averageHr" aria-label="FC media" aria-invalid={invalidPath === 'averageHr'} aria-describedby={invalidPath === 'averageHr' ? errorId : undefined} className={fieldClass} type="number" min={25} max={240} step={1} value={log.averageHr} onChange={(event) => update('averageHr', toNumberOrEmpty(event.target.value))} />
             </label>
             <label className="block">
               <span className={labelClass}>FC máxima</span>
-              <input className={fieldClass} type="number" min={0} value={log.maxHr} onChange={(event) => update('maxHr', toNumberOrEmpty(event.target.value))} />
+              <input id="workout-maxHr" aria-label="FC máxima" aria-invalid={invalidPath === 'maxHr'} aria-describedby={invalidPath === 'maxHr' ? errorId : undefined} className={fieldClass} type="number" min={25} max={240} step={1} value={log.maxHr} onChange={(event) => update('maxHr', toNumberOrEmpty(event.target.value))} />
             </label>
             <label className="block">
               <span className={labelClass}>Porcentaje completado</span>
-              <input className={fieldClass} type="number" min={0} max={100} value={log.completionPercent} onChange={(event) => update('completionPercent', toNumberOrEmpty(event.target.value))} />
+              <input id="workout-completionPercent" aria-label="Porcentaje completado" aria-invalid={invalidPath === 'completionPercent'} aria-describedby={invalidPath === 'completionPercent' ? errorId : undefined} className={fieldClass} type="number" min={0} max={100} step={5} value={log.completionPercent} onChange={(event) => update('completionPercent', toNumberOrEmpty(event.target.value))} />
             </label>
             <label className="block md:col-span-3">
               <span className={labelClass}>Notas</span>
-              <textarea className={`${fieldClass} min-h-20 resize-y`} value={log.notes} onChange={(event) => update('notes', event.target.value)} />
+              <textarea id="workout-notes" aria-label="Notas" aria-invalid={invalidPath === 'notes'} aria-describedby={invalidPath === 'notes' ? errorId : undefined} className={`${fieldClass} min-h-20 resize-y`} value={log.notes} onChange={(event) => update('notes', event.target.value)} />
             </label>
             <label className="block md:col-span-3">
               <span className={labelClass}>Qué fue bien</span>
-              <textarea className={`${fieldClass} min-h-20 resize-y`} value={log.wentWell} onChange={(event) => update('wentWell', event.target.value)} />
+              <textarea id="workout-wentWell" aria-label="Qué fue bien" aria-invalid={invalidPath === 'wentWell'} aria-describedby={invalidPath === 'wentWell' ? errorId : undefined} className={`${fieldClass} min-h-20 resize-y`} value={log.wentWell} onChange={(event) => update('wentWell', event.target.value)} />
             </label>
             <label className="block md:col-span-3">
               <span className={labelClass}>Qué fue mal</span>
-              <textarea className={`${fieldClass} min-h-20 resize-y`} value={log.wentWrong} onChange={(event) => update('wentWrong', event.target.value)} />
+              <textarea id="workout-wentWrong" aria-label="Qué fue mal" aria-invalid={invalidPath === 'wentWrong'} aria-describedby={invalidPath === 'wentWrong' ? errorId : undefined} className={`${fieldClass} min-h-20 resize-y`} value={log.wentWrong} onChange={(event) => update('wentWrong', event.target.value)} />
             </label>
           </div>
 
-          <button type="button" onClick={saveLog} className="mt-4 rounded-full border border-hyrox-gold bg-hyrox-gold px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-black transition hover:bg-white">
+          {error ? <p id={errorId} role="alert" className="mt-3 text-sm font-semibold text-red-300">{error}</p> : null}
+          <button type="button" onClick={() => void saveLog()} className="mt-4 rounded-full border border-hyrox-gold bg-hyrox-gold px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-black transition hover:bg-white">
             Guardar registro
           </button>
         </div>

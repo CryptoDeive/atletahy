@@ -397,8 +397,8 @@ function RoutedApp() {
     });
   }
 
-  async function handleSaveAthleteState() {
-    await saveAthleteStateToAppRepository(activeUserId, athleteState);
+  async function handleSaveAthleteState(nextState: AthleteState) {
+    await saveAthleteStateToAppRepository(activeUserId, nextState);
   }
 
   async function handleCompleteOnboarding(nextState: AthleteState) {
@@ -577,7 +577,7 @@ function RoutedApp() {
                 navigate(destination);
               }} className="rounded-full border border-white/20 px-4 py-2 text-xs font-bold uppercase">Descartar</button>
               <button type="button" onClick={async () => {
-                if (dirtyView === 'account') await handleSaveAthleteState();
+                if (dirtyView === 'account') await handleSaveAthleteState(athleteState);
                 const destination = pendingPath;
                 restoreFocusOnCloseRef.current = false;
                 setDirtyView(null); setPendingPath(null); profileBaselineRef.current = null;

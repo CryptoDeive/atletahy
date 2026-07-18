@@ -5,6 +5,9 @@ import {
   defaultPhysiologyMetrics,
   defaultTrainingAvailability,
 } from '../../data/defaultAthleteState';
+import { validateAthleteState } from '../../domain/fields/schemas';
+import { normalizeHyroxCategory, preserveLegacyOption } from '../../domain/fields/legacy';
+import { DIET_VALUES } from '../../../supabase/functions/_shared/inputDomains';
 import type { AthleteState, EquipmentAvailability, Injury, NutritionPreferences, PhysiologyMetrics, TrainingAvailability } from '../../types/athlete';
 import type { Json } from '../../types/database';
 import { fromNullableDate, fromNullableNumber, getSupabaseClient, toNullableDate, toNullableNumber, warnSupabaseError } from './supabaseRepositoryUtils';
@@ -18,13 +21,16 @@ type NutritionRow = import('../../types/database').Database['public']['Tables'][
 
 function mapProfile(row: ProfileRow | null | undefined): AthleteState['profile'] {
   if (!row) return defaultAthleteProfile;
+  const sex = row.sex === 'female' || row.sex === 'male' || row.sex === 'other' ? row.sex : '';
+  const category = normalizeHyroxCategory(row.hyrox_category, sex);
   return {
     name: row.name,
     birthDate: fromNullableDate(row.birth_date),
     heightCm: fromNullableNumber(row.height_cm),
     weightKg: fromNullableNumber(row.weight_kg),
-    sex: row.sex ?? '',
-    hyroxCategory: row.hyrox_category,
+    sex,
+    hyroxCategory: typeof category === 'string' ? category : '',
+    hyroxCategoryLegacy: typeof category === 'string' ? undefined : category,
     targetDate: fromNullableDate(row.target_race_date),
     mainGoal: row.main_goal,
     targetTime: row.target_time,
@@ -104,9 +110,11 @@ function mapInjury(row: InjuryRow): Injury {
 
 function mapNutrition(row: NutritionRow | null | undefined): NutritionPreferences {
   if (!row) return defaultNutritionPreferences;
+  const diet = preserveLegacyOption(row.diet_type, DIET_VALUES);
   return {
     goal: row.goal,
-    dietType: row.diet_type,
+    dietType: diet.value,
+    dietTypeLegacy: diet.legacy,
     allergies: row.allergies,
     intolerances: row.intolerances,
     caffeineTolerance: row.caffeine_tolerance,
@@ -152,6 +160,8 @@ export async function getAthleteStateFromSupabase(userId: string): Promise<Athle
 }
 
 export async function saveAthleteStateToSupabase(userId: string, state: AthleteState): Promise<void> {
+  const validation = validateAthleteState(state); if (!validation.ok) throw new Error(validation.issues[0]?.message ?? 'Datos del atleta no válidos.');
+  state = validation.value;
   const client = getSupabaseClient();
   if (!client) return;
 

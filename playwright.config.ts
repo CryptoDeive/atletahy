@@ -18,6 +18,10 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'], channel: process.env.PLAYWRIGHT_CHANNEL ?? 'chrome' },
     },
+    {
+      name: 'mobile-chromium',
+      use: { ...devices['Pixel 5'], channel: process.env.PLAYWRIGHT_CHANNEL ?? 'chrome' },
+    },
   ],
   webServer: {
     command: 'npm run dev -- --host 127.0.0.1 --port 4173 --strictPort',

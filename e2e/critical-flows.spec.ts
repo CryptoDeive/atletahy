@@ -91,3 +91,23 @@ test('tests: a SkiErg result persists after reload', async ({ page }) => {
   await expect(page.getByText('2026-07-15')).toBeVisible();
   await expect(page.getByText('7:40').first()).toBeVisible();
 });
+
+test('profile: a typed value outside the combobox list cannot be announced as saved', async ({ page }) => {
+  await page.goto('/demo/profile');
+  const height = page.getByRole('combobox', { name: 'Altura (cm)' });
+  await height.fill('999');
+  await page.getByRole('button', { name: 'Guardar cambios' }).click();
+  await expect(height).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.getByText(/Selecciona una altura válida/i).first()).toBeVisible();
+  await expect(page.getByText('Cambios guardados')).toHaveCount(0);
+
+  await height.click();
+  await height.fill('180');
+  const height180 = page.getByRole('option', { name: '180 cm', exact: true });
+  await expect(height180).toBeVisible();
+  await height180.click();
+  await expect(height).toHaveValue('180 cm');
+  await page.getByRole('combobox', { name: 'Categoría HYROX' }).selectOption('women_open');
+  await page.getByRole('button', { name: 'Guardar cambios' }).click();
+  await expect(page.getByText('Cambios guardados')).toBeVisible();
+});

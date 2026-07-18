@@ -50,6 +50,7 @@ import App from './App';
 function fillOnboardingUntilFinish() {
   fireEvent.change(screen.getByLabelText('Fecha de competición'), { target: { value: '2026-11-22' } });
   fireEvent.change(screen.getByLabelText('Objetivo principal'), { target: { value: 'competir' } });
+  fireEvent.change(screen.getByLabelText('Categoría HYROX'), { target: { value: 'women_open' } });
   fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
   fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
   fireEvent.click(screen.getByLabelText('Lunes'));

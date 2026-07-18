@@ -110,6 +110,7 @@ describe('CoachAdvicePanel', () => {
     await screen.findByText(validCoachAdvice.summary);
     fireEvent.click(screen.getByRole('button', { name: 'Sí' }));
     fireEvent.change(screen.getByLabelText(/comentario para mejorar/i), { target: { value: 'Me ayudó a ajustar el ritmo.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar comentario' }));
 
     await waitFor(() => expect(saveCoachAdviceFeedback).toHaveBeenLastCalledWith('user-1', adviceKey, true, 'Me ayudó a ajustar el ritmo.'));
   });

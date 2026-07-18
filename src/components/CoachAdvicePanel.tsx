@@ -329,17 +329,20 @@ export function CoachAdvicePanel({ coachAdviceInput, adviceKey, latestAdvice = n
             <textarea
               id={`coach-feedback-${adviceKey}`}
               value={userFeedback}
-              onChange={(event) => {
-                const nextFeedback = event.target.value;
-                setUserFeedback(nextFeedback);
-                if (wasUseful !== null) {
-                  void persistFeedback(wasUseful, nextFeedback);
-                }
-              }}
+              onChange={(event) => setUserFeedback(event.target.value)}
+              maxLength={1000}
               rows={2}
               className="mt-1 w-full rounded-xl border border-white/10 bg-black/35 px-3 py-2 text-sm font-semibold text-white outline-none transition placeholder:text-white/30 focus:border-hyrox-gold"
               placeholder="Opcional"
             />
+            <button
+              type="button"
+              disabled={wasUseful === null || userFeedback.length > 1000}
+              onClick={() => wasUseful !== null && void persistFeedback(wasUseful, userFeedback.trim())}
+              className="mt-2 min-h-11 rounded-full border border-white/15 px-3 text-xs font-black uppercase tracking-[0.14em] text-white transition hover:border-hyrox-gold hover:text-hyrox-gold disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Guardar comentario
+            </button>
             {feedbackMessage ? <p role="status" className="mt-2 text-xs font-semibold text-white/50">{feedbackMessage}</p> : null}
           </div>
         </div>

@@ -2,6 +2,13 @@ import { useEffect, useMemo, useState, type ReactNode, type SetStateAction } fro
 import { createEmptyInjury } from '../../data/defaultAthleteState';
 import type { AthleteState, EquipmentAvailability, Injury, MainGoal } from '../../types/athlete';
 import type { ConsentChoices } from '../../legal/consent';
+import { SelectField as ValidatedSelectField } from '../forms/SelectField';
+import { DurationField } from '../forms/DurationField';
+import { DAYS, HYROX_CATEGORIES, HYROX_EXPERIENCE_OPTIONS, INJURY_AREAS, STRENGTH_EXPERIENCE_OPTIONS, TRAINING_TIMES } from '../../domain/fields/options';
+import { validateNotPastDate } from '../../domain/fields/dates';
+import { parseDuration } from '../../domain/fields/durations';
+import { optionalBoundedNumber } from '../../domain/fields/numbers';
+import { validateAthleteState } from '../../domain/fields/schemas';
 
 interface OnboardingViewProps {
   athleteState: AthleteState;
@@ -24,7 +31,7 @@ const steps: { id: StepId; label: string }[] = [
   { id: 'privacy', label: 'Privacidad' },
 ];
 
-const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+const days = DAYS;
 
 const equipmentOptions: { key: keyof EquipmentAvailability; label: string }[] = [
   { key: 'skiErg', label: 'SkiErg' },
@@ -255,6 +262,21 @@ export function OnboardingView({ athleteState, onComplete, onSkip, onSavingChang
       return;
     }
 
+    if (!HYROX_CATEGORIES.some((option) => option.value === draft.profile.hyroxCategory)) {
+      setStepIndex(0); setError('Selecciona una categoría HYROX oficial. Los valores antiguos ambiguos no se pueden guardar.'); return;
+    }
+    const targetDateValidation = validateNotPastDate(draft.profile.targetDate);
+    if (!targetDateValidation.ok) { setStepIndex(0); setError(targetDateValidation.issues[0].message); return; }
+    if (draft.profile.targetTime) {
+      const durationValidation = parseDuration(draft.profile.targetTime, { minSeconds: 1800, maxSeconds: 21600 });
+      if (!durationValidation.ok) { setStepIndex(0); setError('La marca objetivo debe usar hh:mm:ss y estar entre 00:30:00 y 06:00:00.'); return; }
+    }
+    const volumeValidation = optionalBoundedNumber(draft.physiology.currentRunningVolumeKm, { min: 0, max: 300, step: 0.5 });
+    const longRunValidation = optionalBoundedNumber(draft.physiology.currentLongRunKm, { min: 0, max: 100, step: 0.5 });
+    if (!volumeValidation.ok || !longRunValidation.ok || (typeof draft.physiology.currentLongRunKm === 'number' && typeof draft.physiology.currentRunningVolumeKm === 'number' && draft.physiology.currentLongRunKm > draft.physiology.currentRunningVolumeKm)) {
+      setStepIndex(1); setError('Revisa el volumen semanal y la tirada larga; la tirada no puede superar el volumen.'); return;
+    }
+
     if (!draft.profile.mainGoal) {
       setStepIndex(0);
       setError('El objetivo principal es obligatorio para finalizar.');
@@ -285,15 +307,18 @@ export function OnboardingView({ athleteState, onComplete, onSkip, onSavingChang
       return;
     }
 
+    const aggregateValidation = validateAthleteState(draft);
+    if (!aggregateValidation.ok) { const issue = aggregateValidation.issues[0]; const path = issue?.path ?? ''; setStepIndex(path.startsWith('physiology.') ? 1 : path.startsWith('availability.') ? 2 : path.startsWith('equipment') ? 3 : path.startsWith('injuries.') ? 4 : 0); setError(issue?.message ?? 'Revisa los datos introducidos.'); return; }
+
     setError('');
     setIsSaving(true);
     onSavingChange?.(true);
     try {
       if (onConsentChange) await onConsentChange(consents);
       await onComplete({
-        ...draft,
+        ...aggregateValidation.value,
         profile: {
-          ...draft.profile,
+          ...aggregateValidation.value.profile,
           onboardingCompleted: true,
           onboardingCompletedAt: new Date().toISOString(),
         },
@@ -326,20 +351,8 @@ export function OnboardingView({ athleteState, onComplete, onSkip, onSavingChang
                 { value: 'competir', label: 'Competir' },
               ]}
             />
-            <SelectField
-              label="Categoría"
-              value={draft.profile.hyroxCategory}
-              onChange={(value) => updateProfile('hyroxCategory', value)}
-              options={[
-                { value: '', label: 'Seleccionar' },
-                { value: 'Open', label: 'Open' },
-                { value: 'Pro', label: 'Pro' },
-                { value: 'Doubles', label: 'Doubles' },
-                { value: 'Relay', label: 'Relay' },
-                { value: 'Otro', label: 'Otro' },
-              ]}
-            />
-            <Field label="Marca objetivo opcional" value={draft.profile.targetTime ?? ''} onChange={(value) => updateProfile('targetTime', value)} />
+            <ValidatedSelectField label="Categoría HYROX" value={draft.profile.hyroxCategory} onChange={(value) => updateProfile('hyroxCategory', value)} options={HYROX_CATEGORIES} required />
+            <DurationField label="Marca objetivo opcional" value={draft.profile.targetTime ?? ''} onChange={(value) => updateProfile('targetTime', value)} hint="Entre 00:30:00 y 06:00:00" />
           </div>
         </StepCard>
       );
@@ -350,12 +363,12 @@ export function OnboardingView({ athleteState, onComplete, onSkip, onSavingChang
         <StepCard>
           <p className="font-mono text-[0.68rem] font-black uppercase tracking-[0.2em] text-hyrox-gold">Paso 2 · Nivel actual</p>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <SelectField label="Experiencia HYROX" value={draft.physiology.hyroxExperience ?? ''} onChange={(value) => updatePhysiology('hyroxExperience', value)} options={[{ value: '', label: 'Seleccionar' }, { value: 'primera vez', label: 'Primera vez' }, { value: '1-2 carreras', label: '1-2 carreras' }, { value: '3+ carreras', label: '3+ carreras' }]} />
-            <Field label="Volumen actual carrera semanal km" type="number" value={draft.physiology.currentRunningVolumeKm ?? ''} onChange={(value) => updatePhysiology('currentRunningVolumeKm', toNumberOrEmpty(value))} />
-            <Field label="Tirada larga actual km" type="number" value={draft.physiology.currentLongRunKm ?? ''} onChange={(value) => updatePhysiology('currentLongRunKm', toNumberOrEmpty(value))} />
+            <SelectField label="Experiencia HYROX" value={draft.physiology.hyroxExperience ?? ''} onChange={(value) => updatePhysiology('hyroxExperience', value)} options={[{ value: '', label: 'Seleccionar' }, ...HYROX_EXPERIENCE_OPTIONS]} />
+            <Field label="Volumen actual carrera semanal km" type="number" min={0} max={300} value={draft.physiology.currentRunningVolumeKm ?? ''} onChange={(value) => updatePhysiology('currentRunningVolumeKm', toNumberOrEmpty(value))} />
+            <Field label="Tirada larga actual km" type="number" min={0} max={100} value={draft.physiology.currentLongRunKm ?? ''} onChange={(value) => updatePhysiology('currentLongRunKm', toNumberOrEmpty(value))} />
             <Field label="Ritmo 5K opcional" value={draft.physiology.fiveKPace} onChange={(value) => updatePhysiology('fiveKPace', value)} />
             <Field label="Ritmo 10K opcional" value={draft.physiology.tenKPace} onChange={(value) => updatePhysiology('tenKPace', value)} />
-            <SelectField label="Experiencia fuerza" value={draft.physiology.strengthExperience ?? ''} onChange={(value) => updatePhysiology('strengthExperience', value)} options={[{ value: '', label: 'Seleccionar' }, { value: 'baja', label: 'Baja' }, { value: 'media', label: 'Media' }, { value: 'alta', label: 'Alta' }]} />
+            <SelectField label="Experiencia fuerza" value={draft.physiology.strengthExperience ?? ''} onChange={(value) => updatePhysiology('strengthExperience', value)} options={[{ value: '', label: 'Seleccionar' }, ...STRENGTH_EXPERIENCE_OPTIONS]} />
           </div>
         </StepCard>
       );
@@ -378,7 +391,7 @@ export function OnboardingView({ athleteState, onComplete, onSkip, onSavingChang
               </div>
               {showDaysWarning ? <p className="mt-2 text-sm font-semibold text-hyrox-gold">Recomendado: al menos 3 días disponibles por semana para una preparación HYROX más sólida.</p> : null}
             </div>
-            <Field label="Tiempo máximo por sesión" type="number" value={draft.availability.maxSessionMinutes} onChange={(value) => updateAvailability('maxSessionMinutes', toNumberOrEmpty(value))} />
+            <Field label="Tiempo máximo por sesión" type="number" min={15} max={360} value={draft.availability.maxSessionMinutes} onChange={(value) => updateAvailability('maxSessionMinutes', toNumberOrEmpty(value))} />
             <SelectField label="Hora preferida" value={draft.availability.preferredTrainingTime} onChange={(value) => updateAvailability('preferredTrainingTime', value)} options={[{ value: '', label: 'Seleccionar' }, { value: 'mañana', label: 'Mañana' }, { value: 'mediodía', label: 'Mediodía' }, { value: 'tarde', label: 'Tarde' }, { value: 'noche', label: 'Noche' }]} />
             <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-sm font-bold uppercase tracking-wide text-white/80">
               <input className="accent-hyrox-gold" type="checkbox" checked={draft.availability.canDoubleSession} onChange={(event) => updateAvailability('canDoubleSession', event.target.checked)} />
@@ -440,7 +453,7 @@ export function OnboardingView({ athleteState, onComplete, onSkip, onSavingChang
           </div>
           {hasActiveInjury ? (
             <>
-              <Field label="Zona" value={injury.body_area} onChange={(value) => updateFirstActiveInjury({ body_area: value })} />
+              <ValidatedSelectField label="Zona" value={injury.body_area} options={INJURY_AREAS.map((value) => ({ value, label: value }))} onChange={(value) => updateFirstActiveInjury({ body_area: value })} />
               <Field label="Dolor 0-10" type="number" min={0} max={10} value={injury.pain_level_0_10} onChange={(value) => updateFirstActiveInjury({ pain_level_0_10: toNumberOrEmpty(value) })} />
               <TextArea label="Movimientos que molestan" value={injury.movement_restrictions} onChange={(value) => updateFirstActiveInjury({ movement_restrictions: value })} />
               <TextArea label="Notas" value={injury.notes} onChange={(value) => updateFirstActiveInjury({ notes: value })} />

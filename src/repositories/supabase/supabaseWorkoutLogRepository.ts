@@ -1,3 +1,4 @@
+import { validateWorkoutLog } from '../../domain/fields/schemas';
 import type { WorkoutLog } from '../../types/athlete';
 import type { Database } from '../../types/database';
 import { fromNullableDate, fromNullableNumber, getSupabaseClient, toNullableDate, toNullableNumber, warnSupabaseError } from './supabaseRepositoryUtils';
@@ -39,6 +40,8 @@ export async function getWorkoutLogsFromSupabase(userId: string): Promise<Workou
 }
 
 export async function saveWorkoutLogToSupabase(userId: string, log: WorkoutLog): Promise<void> {
+  const validation = validateWorkoutLog(log); if (!validation.ok) throw new Error(validation.issues[0]?.message ?? 'Registro no válido.');
+  log = validation.value;
   const client = getSupabaseClient();
   if (!client) return;
 

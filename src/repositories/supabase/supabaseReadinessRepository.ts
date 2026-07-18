@@ -1,3 +1,4 @@
+import { validateDailyReadiness } from '../../domain/fields/schemas';
 import type { DailyReadiness } from '../../types/athlete';
 import type { Database } from '../../types/database';
 import { fromNullableNumber, getSupabaseClient, toNullableNumber, warnSupabaseError } from './supabaseRepositoryUtils';
@@ -34,10 +35,13 @@ export async function getDailyReadinessFromSupabase(userId: string, date: string
     throw error;
   }
 
-  return data ? mapReadiness(data) : null;
+  if (!data) return null;
+  return mapReadiness(data);
 }
 
 export async function saveDailyReadinessToSupabase(userId: string, readiness: DailyReadiness): Promise<void> {
+  const validation = validateDailyReadiness(readiness); if (!validation.ok) throw new Error(validation.issues[0]?.message ?? 'Check-in no válido.');
+  readiness = validation.value;
   const client = getSupabaseClient();
   if (!client) return;
 

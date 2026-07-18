@@ -3,6 +3,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { AuthPanel, type AuthSessionInfo } from '../auth/AuthPanel';
 import { createEmptyInjury } from '../../data/defaultAthleteState';
 import { PrivacyAccountPanel } from './PrivacyAccountPanel';
+import { AccessibleCombobox } from '../forms/AccessibleCombobox';
+import { SelectField as ValidatedSelectField } from '../forms/SelectField';
+import { HEIGHT_OPTIONS, WEIGHT_OPTIONS, HYROX_CATEGORIES, SEX_OPTIONS, DAYS, TRAINING_TIMES, HYROX_EXPERIENCE_OPTIONS, STRENGTH_EXPERIENCE_OPTIONS, INJURY_AREAS, BODY_SIDES, DIET_OPTIONS, CAFFEINE_OPTIONS, FASTED_OPTIONS } from '../../domain/fields/options';
+import { validateAthleteState, validateDailyReadiness } from '../../domain/fields/schemas';
 import type { StorageContext } from '../../repositories/storageKeys';
 import type {
   AthleteProfile,
@@ -42,7 +46,7 @@ interface AccountViewProps {
   onBackToTraining: () => void;
   authSession: AuthSessionInfo | null;
   onAuthSessionChange: (session: AuthSessionInfo | null) => void;
-  onSaveAthleteState: () => Promise<void>;
+  onSaveAthleteState: (state: import('../../types/athlete').AthleteState) => Promise<void>;
   onSaveDailyReadiness: (readiness: DailyReadiness) => Promise<void>;
   onSyncLocalToSupabase: () => Promise<void>;
   onboardingPending: boolean;
@@ -66,7 +70,7 @@ const tabs: { id: AccountTab; label: string }[] = [
   { id: 'privacy', label: 'Privacidad' },
 ];
 
-const availableDays = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+const availableDays = DAYS;
 
 const equipmentLabels: { key: keyof EquipmentAvailability; label: string }[] = [
   { key: 'skiErg', label: 'SkiErg' },
@@ -123,15 +127,20 @@ interface FieldProps {
   max?: number;
   step?: number;
   onChange: (value: string) => void;
+  fieldPath?: string;
+  error?: string;
 }
 
-function Field({ label, value, type = 'text', min, max, step, onChange }: FieldProps) {
+function Field({ label, value, type = 'text', min, max, step, onChange, fieldPath, error }: FieldProps) {
   const id = label.toLowerCase().replaceAll(' ', '-').replaceAll('(', '').replaceAll(')', '');
   return (
     <label className="block">
       <span className={labelClass()}>{label}</span>
       <input
         id={id}
+        data-field-path={fieldPath}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `${id}-error` : undefined}
         className={fieldClass()}
         type={type}
         min={min}
@@ -140,6 +149,7 @@ function Field({ label, value, type = 'text', min, max, step, onChange }: FieldP
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
+      {error ? <span id={`${id}-error`} role="alert" className="mt-1 block text-xs font-semibold text-red-300">{error}</span> : null}
     </label>
   );
 }
@@ -224,9 +234,13 @@ export function AccountView({
   const safeInitialTab = tabs.some((tab) => tab.id === initialTab) ? initialTab as AccountTab : 'profile';
   const [activeTab, setActiveTab] = useState<AccountTab>(safeInitialTab);
   const [readinessSaved, setReadinessSaved] = useState(false);
+  const [readinessError, setReadinessError] = useState<string | null>(null);
   const [profileSaved, setProfileSaved] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
+  const [comboboxErrors, setComboboxErrors] = useState<Record<string, string>>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const fieldError = (path: string) => fieldErrors[path];
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const ageLabel = useMemo(() => calculateAge(profile.birthDate), [profile.birthDate]);
 
@@ -257,7 +271,7 @@ export function AccountView({
 
   function updateNutrition<K extends keyof NutritionPreferences>(key: K, value: NutritionPreferences[K]) {
     markDirty();
-    setNutrition((current) => ({ ...current, [key]: value }));
+    setNutrition((current) => ({ ...current, [key]: value, ...(key === 'dietType' ? { dietTypeLegacy: undefined } : {}) }));
   }
 
   function updateReadiness<K extends keyof DailyReadiness>(key: K, value: DailyReadiness[K]) {
@@ -287,8 +301,21 @@ export function AccountView({
     setProfileSaving(true);
     setProfileSaved(false);
     setProfileSaveError(null);
+    setFieldErrors({});
+    if (Object.keys(comboboxErrors).length) { setProfileSaveError(Object.values(comboboxErrors)[0]); setProfileSaving(false); return; }
+    const validation = validateAthleteState({ profile, physiology, availability, equipment, injuries, nutrition });
+    if (!validation.ok) {
+      const errors = Object.fromEntries(validation.issues.map((issue) => [issue.path, issue.message])); setFieldErrors(errors);
+      const first = validation.issues[0];
+      const tab: AccountTab = first?.path.startsWith('physiology.') ? 'physiology' : first?.path.startsWith('availability.') ? 'availability' : first?.path.startsWith('equipment') ? 'equipment' : first?.path.startsWith('injuries.') ? 'injuries' : first?.path.startsWith('nutrition.') ? 'nutrition' : 'profile'; setActiveTab(tab); onTabChange?.(tab);
+      setTimeout(() => document.querySelector<HTMLElement>(`[data-field-path="${first?.path}"]`)?.focus(), 0);
+      setProfileSaveError(first?.message ?? 'Revisa los campos indicados.');
+      setProfileSaving(false);
+      return;
+    }
     try {
-      await onSaveAthleteState();
+      setProfile(validation.value.profile); setPhysiology(validation.value.physiology); setAvailability(validation.value.availability); setEquipment(validation.value.equipment); setInjuries(validation.value.injuries); setNutrition(validation.value.nutrition);
+      await onSaveAthleteState(validation.value);
       setProfileSaved(true);
       onDirtyChange?.(false);
     } catch {
@@ -310,11 +337,16 @@ export function AccountView({
   }
 
   async function handleSaveReadiness() {
-    setReadinessSaved(true);
+    const validation = validateDailyReadiness(dailyReadiness);
+    if (!validation.ok) { setReadinessSaved(false); setReadinessError(validation.issues[0]?.message ?? 'Revisa el check-in.'); return; }
+    setReadinessError(null);
     try {
-      await onSaveDailyReadiness(dailyReadiness);
+      setDailyReadiness(validation.value);
+      await onSaveDailyReadiness(validation.value);
+      setReadinessSaved(true);
     } catch {
       setReadinessSaved(false);
+      setReadinessError('No se pudo guardar el check-in.');
     }
   }
 
@@ -331,27 +363,18 @@ export function AccountView({
     if (activeTab === 'profile') {
       return (
         <SectionShell title="Perfil básico">
-          <Field label="Nombre" value={profile.name} onChange={(value) => updateProfile('name', value)} />
-          <Field label="Fecha de nacimiento" type="date" value={profile.birthDate} onChange={(value) => updateProfile('birthDate', value)} />
+          <Field fieldPath="profile.name" error={fieldError('profile.name')} label="Nombre" value={profile.name} onChange={(value) => updateProfile('name', value)} />
+          <Field fieldPath="profile.birthDate" error={fieldError('profile.birthDate')} label="Fecha de nacimiento" type="date" value={profile.birthDate} onChange={(value) => updateProfile('birthDate', value)} />
           <div className="rounded-xl border border-hyrox-gold/20 bg-hyrox-gold/10 p-3">
             <p className={labelClass()}>Edad calculada</p>
             <p className="mt-2 font-mono text-lg font-bold text-hyrox-gold">{ageLabel}</p>
           </div>
-          <Field label="Altura (cm)" type="number" value={profile.heightCm} onChange={(value) => updateProfile('heightCm', toNumberOrEmpty(value))} />
-          <Field label="Peso (kg)" type="number" value={profile.weightKg} onChange={(value) => updateProfile('weightKg', toNumberOrEmpty(value))} />
-          <SelectField
-            label="Sexo"
-            value={profile.sex ?? ''}
-            onChange={(value) => updateProfile('sex', value)}
-            options={[
-              { value: '', label: 'Opcional' },
-              { value: 'female', label: 'Femenino' },
-              { value: 'male', label: 'Masculino' },
-              { value: 'other', label: 'Otro / no especificar' },
-            ]}
-          />
-          <Field label="Categoría HYROX" value={profile.hyroxCategory} onChange={(value) => updateProfile('hyroxCategory', value)} />
-          <Field label="Fecha objetivo" type="date" value={profile.targetDate} onChange={(value) => updateProfile('targetDate', value)} />
+          <AccessibleCombobox label="Altura (cm)" value={profile.heightCm} options={HEIGHT_OPTIONS} error={comboboxErrors['profile.heightCm'] ?? fieldError('profile.heightCm')} onChange={(value) => { updateProfile('heightCm', value); setComboboxErrors((current) => value === '' ? { ...current, 'profile.heightCm': 'Selecciona una altura válida.' } : Object.fromEntries(Object.entries(current).filter(([key]) => key !== 'profile.heightCm'))); }} />
+          <AccessibleCombobox label="Peso (kg)" value={profile.weightKg} options={WEIGHT_OPTIONS} error={comboboxErrors['profile.weightKg'] ?? fieldError('profile.weightKg')} onChange={(value) => { updateProfile('weightKg', value); setComboboxErrors((current) => value === '' ? { ...current, 'profile.weightKg': 'Selecciona un peso válido.' } : Object.fromEntries(Object.entries(current).filter(([key]) => key !== 'profile.weightKg'))); }} />
+          <ValidatedSelectField label="Sexo" error={fieldError('profile.sex')} value={profile.sex ?? ''} onChange={(value) => updateProfile('sex', value)} options={SEX_OPTIONS} />
+          {profile.hyroxCategoryLegacy ? <p role="alert" className="sm:col-span-2 rounded-xl border border-hyrox-gold/30 bg-hyrox-gold/[0.08] p-3 text-sm font-semibold text-hyrox-gold">{profile.hyroxCategoryLegacy.label}. Selecciona una categoría oficial antes de guardar.</p> : null}
+          <ValidatedSelectField label="Categoría HYROX" error={fieldError('profile.hyroxCategory') ?? (profile.hyroxCategoryLegacy ? `${profile.hyroxCategoryLegacy.label}. Selecciona una categoría oficial.` : undefined)} value={profile.hyroxCategory} options={HYROX_CATEGORIES} onChange={(value) => { updateProfile('hyroxCategory', value); setProfile((current) => ({ ...current, hyroxCategory: value, hyroxCategoryLegacy: undefined })); }} required />
+          <Field fieldPath="profile.targetDate" error={fieldError('profile.targetDate')} label="Fecha objetivo" type="date" value={profile.targetDate} onChange={(value) => updateProfile('targetDate', value)} />
           <SelectField
             label="Objetivo principal"
             value={profile.mainGoal}
@@ -369,16 +392,18 @@ export function AccountView({
     if (activeTab === 'physiology') {
       return (
         <SectionShell title="Marcadores fisiológicos">
-          <Field label="FC reposo baseline" type="number" value={physiology.restingHrBaseline} onChange={(value) => updatePhysiology('restingHrBaseline', toNumberOrEmpty(value))} />
-          <Field label="FC reposo hoy" type="number" value={physiology.restingHrToday} onChange={(value) => updatePhysiology('restingHrToday', toNumberOrEmpty(value))} />
-          <Field label="FC máxima" type="number" value={physiology.maxHr} onChange={(value) => updatePhysiology('maxHr', toNumberOrEmpty(value))} />
-          <Field label="LTHR" type="number" value={physiology.lthr} onChange={(value) => updatePhysiology('lthr', toNumberOrEmpty(value))} />
-          <Field label="rFTP" value={physiology.rftp} onChange={(value) => updatePhysiology('rftp', value)} />
-          <Field label="Z2 pace low" value={physiology.z2PaceLow} onChange={(value) => updatePhysiology('z2PaceLow', value)} />
-          <Field label="Z2 pace high" value={physiology.z2PaceHigh} onChange={(value) => updatePhysiology('z2PaceHigh', value)} />
-          <Field label="Ritmo 5K" value={physiology.fiveKPace} onChange={(value) => updatePhysiology('fiveKPace', value)} />
-          <Field label="Ritmo 10K" value={physiology.tenKPace} onChange={(value) => updatePhysiology('tenKPace', value)} />
-          <Field label="HRV baseline" type="number" value={physiology.hrvBaseline ?? ''} onChange={(value) => updatePhysiology('hrvBaseline', toNumberOrEmpty(value))} />
+          <Field fieldPath="physiology.restingHrBaseline" error={fieldError('physiology.restingHrBaseline')} label="FC reposo baseline" type="number" min={25} max={240} step={1} value={physiology.restingHrBaseline} onChange={(value) => updatePhysiology('restingHrBaseline', toNumberOrEmpty(value))} />
+          <Field fieldPath="physiology.restingHrToday" error={fieldError('physiology.restingHrToday')} label="FC reposo hoy" type="number" min={25} max={240} step={1} value={physiology.restingHrToday} onChange={(value) => updatePhysiology('restingHrToday', toNumberOrEmpty(value))} />
+          <Field label="FC máxima" type="number" min={25} max={240} step={1} value={physiology.maxHr} onChange={(value) => updatePhysiology('maxHr', toNumberOrEmpty(value))} />
+          <Field fieldPath="physiology.lthr" error={fieldError('physiology.lthr')} label="LTHR" type="number" min={25} max={240} step={1} value={physiology.lthr} onChange={(value) => updatePhysiology('lthr', toNumberOrEmpty(value))} />
+          <Field fieldPath="physiology.rftp" error={fieldError('physiology.rftp')} label="rFTP" value={physiology.rftp} onChange={(value) => updatePhysiology('rftp', value)} />
+          <Field fieldPath="physiology.z2PaceLow" error={fieldError('physiology.z2PaceLow')} label="Z2 pace low" value={physiology.z2PaceLow} onChange={(value) => updatePhysiology('z2PaceLow', value)} />
+          <Field fieldPath="physiology.z2PaceHigh" error={fieldError('physiology.z2PaceHigh')} label="Z2 pace high" value={physiology.z2PaceHigh} onChange={(value) => updatePhysiology('z2PaceHigh', value)} />
+          <Field fieldPath="physiology.fiveKPace" error={fieldError('physiology.fiveKPace')} label="Ritmo 5K" value={physiology.fiveKPace} onChange={(value) => updatePhysiology('fiveKPace', value)} />
+          <Field fieldPath="physiology.tenKPace" error={fieldError('physiology.tenKPace')} label="Ritmo 10K" value={physiology.tenKPace} onChange={(value) => updatePhysiology('tenKPace', value)} />
+          <Field fieldPath="physiology.hrvBaseline" error={fieldError('physiology.hrvBaseline')} label="HRV baseline" type="number" min={1} max={500} step={1} value={physiology.hrvBaseline ?? ''} onChange={(value) => updatePhysiology('hrvBaseline', toNumberOrEmpty(value))} />
+          <ValidatedSelectField label="Experiencia HYROX" error={fieldError('physiology.hyroxExperience')} value={physiology.hyroxExperience ?? ''} options={HYROX_EXPERIENCE_OPTIONS} onChange={(value) => updatePhysiology('hyroxExperience', value)} />
+          <ValidatedSelectField label="Experiencia fuerza" error={fieldError('physiology.strengthExperience')} value={physiology.strengthExperience ?? ''} options={STRENGTH_EXPERIENCE_OPTIONS} onChange={(value) => updatePhysiology('strengthExperience', value)} />
         </SectionShell>
       );
     }
@@ -397,13 +422,13 @@ export function AccountView({
               ))}
             </div>
           </div>
-          <Field label="Hora preferida de entrenamiento" value={availability.preferredTrainingTime} onChange={(value) => updateAvailability('preferredTrainingTime', value)} />
-          <Field label="Tiempo máximo por sesión" type="number" value={availability.maxSessionMinutes} onChange={(value) => updateAvailability('maxSessionMinutes', toNumberOrEmpty(value))} />
+          <ValidatedSelectField label="Hora preferida de entrenamiento" error={fieldError('availability.preferredTrainingTime')} value={availability.preferredTrainingTime} options={TRAINING_TIMES} onChange={(value) => updateAvailability('preferredTrainingTime', value)} />
+          <Field label="Tiempo máximo por sesión" type="number" min={15} max={360} step={5} value={availability.maxSessionMinutes} onChange={(value) => updateAvailability('maxSessionMinutes', toNumberOrEmpty(value))} />
           <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-sm font-bold uppercase tracking-wide text-white/80">
             <input className="accent-hyrox-gold" type="checkbox" checked={availability.canDoubleSession} onChange={(event) => updateAvailability('canDoubleSession', event.target.checked)} />
             Posibilidad de doble sesión
           </label>
-          <Field label="Separación mínima entre sesiones" type="number" value={availability.minHoursBetweenSessions} onChange={(value) => updateAvailability('minHoursBetweenSessions', toNumberOrEmpty(value))} />
+          <Field label="Separación mínima entre sesiones" type="number" min={1} max={24} step={1} value={availability.minHoursBetweenSessions} onChange={(value) => updateAvailability('minHoursBetweenSessions', toNumberOrEmpty(value))} />
           <TextArea label="Notas de agenda" value={availability.scheduleNotes} onChange={(value) => updateAvailability('scheduleNotes', value)} />
         </SectionShell>
       );
@@ -439,8 +464,8 @@ export function AccountView({
           {injuries.map((injury) => (
             <div key={injury.id} className="md:col-span-2 rounded-2xl border border-white/10 bg-white/[0.025] p-3">
               <div className="grid gap-3 md:grid-cols-2">
-                <Field label="Zona corporal" value={injury.body_area} onChange={(value) => updateInjury(injury.id, { body_area: value })} />
-                <Field label="Lado" value={injury.side} onChange={(value) => updateInjury(injury.id, { side: value })} />
+                <ValidatedSelectField label="Zona corporal" value={injury.body_area} options={INJURY_AREAS.map((value) => ({ value, label: value }))} onChange={(value) => updateInjury(injury.id, { body_area: value })} />
+                <ValidatedSelectField label="Lado" value={injury.side} options={BODY_SIDES} onChange={(value) => updateInjury(injury.id, { side: value })} />
                 <Field label="Dolor (0-10)" type="number" min={0} max={10} value={injury.pain_level_0_10} onChange={(value) => updateInjury(injury.id, { pain_level_0_10: toNumberOrEmpty(value) })} />
                 <SelectField
                   label="Estado lesión"
@@ -480,11 +505,12 @@ export function AccountView({
               { value: 'perdida_grasa', label: 'Pérdida grasa' },
             ]}
           />
-          <Field label="Tipo de dieta" value={nutrition.dietType} onChange={(value) => updateNutrition('dietType', value)} />
+          {nutrition.dietTypeLegacy ? <p role="alert" className="sm:col-span-2 rounded-xl border border-hyrox-gold/30 bg-hyrox-gold/[0.08] p-3 text-sm font-semibold text-hyrox-gold">{nutrition.dietTypeLegacy.label}. Selecciona una opción actual antes de guardar.</p> : null}
+          <ValidatedSelectField label="Tipo de dieta" error={fieldError('nutrition.dietType')} value={nutrition.dietType} options={DIET_OPTIONS} onChange={(value) => updateNutrition('dietType', value)} />
           <Field label="Alergias" value={nutrition.allergies} onChange={(value) => updateNutrition('allergies', value)} />
           <Field label="Intolerancias" value={nutrition.intolerances} onChange={(value) => updateNutrition('intolerances', value)} />
-          <Field label="Tolerancia a cafeína" value={nutrition.caffeineTolerance} onChange={(value) => updateNutrition('caffeineTolerance', value)} />
-          <Field label="Entrenar en ayunas" value={nutrition.fastedTrainingPreference} onChange={(value) => updateNutrition('fastedTrainingPreference', value)} />
+          <ValidatedSelectField label="Tolerancia a cafeína" value={nutrition.caffeineTolerance} options={CAFFEINE_OPTIONS} onChange={(value) => updateNutrition('caffeineTolerance', value)} />
+          <ValidatedSelectField label="Entrenar en ayunas" value={nutrition.fastedTrainingPreference} options={FASTED_OPTIONS} onChange={(value) => updateNutrition('fastedTrainingPreference', value)} />
           <TextArea label="Horarios habituales de comida" value={nutrition.mealTiming} onChange={(value) => updateNutrition('mealTiming', value)} />
           <Field label="Suplementos opcionales" value={nutrition.supplements ?? ''} onChange={(value) => updateNutrition('supplements', value)} />
           <TextArea label="Notas nutrición" value={nutrition.notes} onChange={(value) => updateNutrition('notes', value)} />
@@ -498,7 +524,7 @@ export function AccountView({
 
     return (
       <SectionShell title="Check-in diario">
-        <Field label="Horas de sueño" type="number" step={0.5} value={dailyReadiness.sleepHours} onChange={(value) => updateReadiness('sleepHours', toNumberOrEmpty(value))} />
+        <Field label="Horas de sueño" type="number" min={0} max={24} step={0.5} value={dailyReadiness.sleepHours} onChange={(value) => updateReadiness('sleepHours', toNumberOrEmpty(value))} />
         <Field label="Calidad sueño (1-5)" type="number" min={1} max={5} value={dailyReadiness.sleepQuality1To5} onChange={(value) => updateReadiness('sleepQuality1To5', toNumberOrEmpty(value))} />
         <Field label="Estrés (1-5)" type="number" min={1} max={5} value={dailyReadiness.stress1To5} onChange={(value) => updateReadiness('stress1To5', toNumberOrEmpty(value))} />
         <Field label="Fatiga (1-5)" type="number" min={1} max={5} value={dailyReadiness.fatigue1To5} onChange={(value) => updateReadiness('fatigue1To5', toNumberOrEmpty(value))} />
@@ -515,6 +541,7 @@ export function AccountView({
             Guardar check-in
           </button>
           {readinessSaved ? <p className="font-mono text-xs font-bold uppercase tracking-wide text-hyrox-gold">Check-in guardado para hoy.</p> : null}
+          {readinessError ? <p role="alert" className="text-xs font-semibold text-red-300">{readinessError}</p> : null}
         </div>
       </SectionShell>
     );
@@ -553,7 +580,7 @@ export function AccountView({
             { label: 'Nombre', value: profile.name || 'Pendiente' },
             { label: 'Edad', value: ageLabel },
             { label: 'Peso', value: profile.weightKg === '' ? 'Pendiente' : `${profile.weightKg} kg` },
-            { label: 'Categoría HYROX', value: profile.hyroxCategory || 'Pendiente' },
+            { label: 'Categoría HYROX', value: profile.hyroxCategory || profile.hyroxCategoryLegacy?.label || 'Pendiente' },
             { label: 'Objetivo', value: formatMainGoal(profile.mainGoal) },
             { label: 'Fecha de competición', value: profile.targetDate || 'Pendiente' },
           ].map((item) => (

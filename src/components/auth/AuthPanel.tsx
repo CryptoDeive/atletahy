@@ -85,6 +85,12 @@ export function AuthPanel({ onSessionChange, preferredMode = 'login', focusSigna
     };
   }, [onSessionChange]);
 
+  function normalizedEmail() {
+    const value = email.trim().toLowerCase();
+    if (value.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) { setMessage('Introduce un correo electrónico válido.'); emailInputRef.current?.focus(); return null; }
+    return value;
+  }
+
   async function handleLogin(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
     setAuthMode('login');
@@ -93,9 +99,10 @@ export function AuthPanel({ onSessionChange, preferredMode = 'login', focusSigna
       return;
     }
 
+    const safeEmail = normalizedEmail(); if (!safeEmail) return;
     setIsSubmitting(true);
     setMessage(null);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email: safeEmail, password });
     setIsSubmitting(false);
 
     if (error) {
@@ -117,10 +124,11 @@ export function AuthPanel({ onSessionChange, preferredMode = 'login', focusSigna
       return;
     }
 
+    const safeEmail = normalizedEmail(); if (!safeEmail) return;
     setIsSubmitting(true);
     setMessage(null);
     const { error } = await supabase.auth.signUp({
-      email,
+      email: safeEmail,
       password,
       options: { data: buildSignupLegalMetadata() },
     });
@@ -171,6 +179,7 @@ export function AuthPanel({ onSessionChange, preferredMode = 'login', focusSigna
           placeholder="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
+          maxLength={254}
           required={Boolean(supabase)}
           disabled={isSubmitting}
         />

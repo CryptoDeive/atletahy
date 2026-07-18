@@ -50,7 +50,7 @@ describe('HYROX Planner authenticated shell', () => {
       heightCm: '',
       weightKg: '',
       sex: '',
-      hyroxCategory: 'Open',
+      hyroxCategory: 'women_open',
       targetDate: '2026-11-22',
       mainGoal: 'terminar',
       targetTime: '01:20:00',
@@ -88,6 +88,7 @@ describe('HYROX Planner authenticated shell', () => {
 
     fireEvent.change(screen.getByLabelText('Fecha de competición'), { target: { value: '2026-11-22' } });
     fireEvent.change(screen.getByLabelText('Objetivo principal'), { target: { value: 'competir' } });
+    fireEvent.change(screen.getByLabelText('Categoría HYROX'), { target: { value: 'women_open' } });
     fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
 
     fireEvent.change(screen.getByLabelText('Volumen actual carrera semanal km'), { target: { value: '32' } });
@@ -120,7 +121,7 @@ describe('HYROX Planner authenticated shell', () => {
 
   it('shows onboarding state in Mi perfil and opens edit onboarding', async () => {
     window.localStorage.setItem('atletahy:user-1:athlete-profile', JSON.stringify({
-      name: '', birthDate: '', heightCm: '', weightKg: '', sex: '', hyroxCategory: 'Open',
+      name: '', birthDate: '', heightCm: '', weightKg: '', sex: '', hyroxCategory: 'women_open',
       targetDate: '2026-11-22', mainGoal: 'terminar', targetTime: '', onboardingCompleted: true, onboardingCompletedAt: '2026-07-09T10:00:00.000Z',
     }));
     window.localStorage.setItem('atletahy:user-1:training-availability', JSON.stringify({

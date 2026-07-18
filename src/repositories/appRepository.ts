@@ -169,7 +169,7 @@ export async function deleteTrainingTestResult(userId: string | null | undefined
 
 export async function syncLocalDataToSupabase(userId: string): Promise<void> {
   if (!shouldUseSupabase(userId)) {
-    throw new Error('Supabase no est? configurado o no hay sesi?n activa.');
+    throw new Error('Supabase no está configurado o no hay sesión activa.');
   }
 
   importLegacyAndGuestData(userId);

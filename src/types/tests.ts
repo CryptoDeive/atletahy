@@ -13,6 +13,7 @@ export type TrainingTestField = {
   required?: boolean;
   options?: string[];
   min?: number;
+  max?: number;
   step?: number;
   placeholder?: string;
 };

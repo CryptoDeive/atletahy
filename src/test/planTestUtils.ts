@@ -81,7 +81,7 @@ export const validGeneratedTrainingPlan: GeneratedTrainingPlan = {
 };
 
 export const validPlanGenerationInput: PlanGenerationInput = {
-  objective: { targetRaceDate: '2026-11-22', mainGoal: 'terminar', category: 'Open' },
+  objective: { targetRaceDate: '2026-11-22', mainGoal: 'terminar', category: 'women_open' },
   currentLevel: { currentRunningVolumeKm: 24, currentLongRunKm: 10 },
   availability: { ...defaultTrainingAvailability, availableDays: ['Lunes', 'Miércoles', 'Viernes'], maxSessionMinutes: 75, preferredTrainingTime: 'mañana' },
   equipment: { available: ['SkiErg', 'Sled'], raw: { ...defaultEquipmentAvailability, skiErg: true, sled: true } },
@@ -93,7 +93,7 @@ export const validPlanGenerationInput: PlanGenerationInput = {
 };
 
 export const validAthleteStateForPlan = {
-  profile: { ...defaultAthleteProfile, targetDate: '2026-11-22', mainGoal: 'terminar' as const, hyroxCategory: 'Open', onboardingCompleted: true },
+  profile: { ...defaultAthleteProfile, targetDate: '2026-11-22', mainGoal: 'terminar' as const, hyroxCategory: 'women_open', onboardingCompleted: true },
   physiology: defaultPhysiologyMetrics,
   availability: { ...defaultTrainingAvailability, availableDays: ['Lunes', 'Miércoles', 'Viernes'], maxSessionMinutes: 75, preferredTrainingTime: 'mañana' },
   equipment: { ...defaultEquipmentAvailability, skiErg: true, sled: true },

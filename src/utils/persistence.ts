@@ -6,7 +6,15 @@ export function readFromLocalStorage<T>(key: string, fallback: T): T {
 
   try {
     const rawValue = window.localStorage.getItem(key);
-    return rawValue ? (JSON.parse(rawValue) as T) : fallback;
+    if (!rawValue) return fallback;
+    const parsed: unknown = JSON.parse(rawValue);
+    if (Array.isArray(fallback)) return (Array.isArray(parsed) ? parsed : fallback) as T;
+    if (fallback !== null && typeof fallback === 'object') {
+      if (parsed === null || typeof parsed !== 'object') return fallback;
+      if (Array.isArray(parsed)) return parsed as T;
+      return { ...fallback, ...parsed } as T;
+    }
+    return (typeof parsed === typeof fallback ? parsed : fallback) as T;
   } catch {
     return fallback;
   }
