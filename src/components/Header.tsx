@@ -75,7 +75,7 @@ export function Header({ mode, activeView, onNavigate, onAuthIntent, authEmail, 
   }
 
   return (
-    <header className="sticky top-0 z-20 border-b border-white/10 bg-hyrox-black/90 backdrop-blur">
+    <header className="sticky top-0 z-20 border-b border-white/10 bg-hyrox-black">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-5 lg:px-8">
         <button
           type="button"
@@ -87,14 +87,14 @@ export function Header({ mode, activeView, onNavigate, onAuthIntent, authEmail, 
           <h1 className="font-display text-2xl uppercase leading-none tracking-tight text-white sm:text-3xl">HYROX Planner</h1>
         </button>
         <div className="flex items-center gap-2 sm:justify-end">
-          {activeView !== 'account' ? (
+          {activeView !== 'account' && authEmail ? (
             <div className="hidden md:block">
               <AuthStatus email={authEmail} compact />
             </div>
           ) : null}
           <nav
             aria-label="Principal"
-            className="fixed inset-x-3 bottom-0 z-30 grid grid-cols-3 gap-1 rounded-t-2xl border border-white/10 bg-hyrox-black/95 px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-panel backdrop-blur sm:static sm:flex sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none"
+            className="fixed inset-x-3 bottom-0 z-30 grid grid-cols-3 gap-1 rounded-t-2xl border border-white/10 bg-hyrox-black px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-panel sm:static sm:flex sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none"
           >
             <a
               href="#training"

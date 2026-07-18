@@ -7,8 +7,6 @@ import {
   calculateWeeklyCompletion,
   calculateWeeklyLoad,
   getLogForTrainingDay,
-  getWeeklyReadinessWarning,
-  type WeeklyWarningStatus,
 } from '../utils/weeklyAnalytics';
 
 interface WeeklyDashboardProps {
@@ -17,18 +15,6 @@ interface WeeklyDashboardProps {
   workoutLogs: WorkoutLog[];
   readinessByDate: Record<string, DailyReadiness>;
 }
-
-const warningLabels: Record<WeeklyWarningStatus, string> = {
-  green: 'Verde',
-  yellow: 'Amarillo',
-  red: 'Rojo',
-};
-
-const warningClasses: Record<WeeklyWarningStatus, string> = {
-  green: 'border-emerald-400/35 bg-emerald-400/10 text-emerald-200',
-  yellow: 'border-hyrox-gold/45 bg-hyrox-gold/10 text-hyrox-gold',
-  red: 'border-red-400/40 bg-red-500/10 text-red-200',
-};
 
 function formatValue(value: number | null, digits = 1) {
   if (value === null) return '—';
@@ -62,19 +48,14 @@ export function WeeklyDashboard({ activeWeek, activeDayId, workoutLogs, readines
     .filter((readiness): readiness is DailyReadiness => Boolean(readiness))
     .sort((a, b) => a.date.localeCompare(b.date));
   const latestReadiness = weekReadiness.at(-1) ?? null;
-  const warning = getWeeklyReadinessWarning(latestReadiness, weekLogs);
-
   return (
     <section aria-label="Dashboard semanal" className="rounded-2xl border border-hyrox-gold/20 bg-black/35 p-4 shadow-[0_0_0_1px_rgba(246,201,76,0.04)]">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div>
         <div>
           <p className="font-mono text-[0.68rem] font-black uppercase tracking-[0.2em] text-hyrox-gold">Dashboard semanal</p>
           <h2 className="mt-1 font-display text-3xl uppercase leading-none text-white">Semana {activeWeek.weekNumber}</h2>
           {weekLogs.length === 0 ? <p className="mt-2 text-sm font-semibold text-white/55">Sin registros esta semana</p> : null}
         </div>
-        <span className={`inline-flex w-fit items-center rounded-full border px-3 py-1.5 font-mono text-[0.68rem] font-black uppercase tracking-[0.16em] ${warningClasses[warning]}`}>
-          Alerta {warningLabels[warning]}
-        </span>
       </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">

@@ -116,7 +116,6 @@ export function CoachAdvicePanel({ coachAdviceInput, adviceKey, latestAdvice = n
   const [adviceSource, setAdviceSource] = useState<CoachAdviceSource>('local');
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [uiStatus, setUiStatus] = useState<AdviceUiStatus>(latestAdvice ? 'generated' : 'idle');
-  const [isOpen, setIsOpen] = useState(Boolean(latestAdvice));
   const [isGenerating, setIsGenerating] = useState(false);
   const [wasUseful, setWasUseful] = useState<boolean | null>(null);
   const [userFeedback, setUserFeedback] = useState('');
@@ -126,7 +125,6 @@ export function CoachAdvicePanel({ coachAdviceInput, adviceKey, latestAdvice = n
 
   useEffect(() => {
     let isMounted = true;
-    setIsOpen(Boolean(latestAdvice));
     setAdvice(latestAdvice);
     setAdviceSource('local');
     setSourceError(null);
@@ -141,7 +139,6 @@ export function CoachAdvicePanel({ coachAdviceInput, adviceKey, latestAdvice = n
         setAdvice(storedAdvice);
         setAdviceSource(userId ? 'openai' : 'local');
         setUiStatus('loaded');
-        setIsOpen(true);
       })
       .catch(() => {
         if (!isMounted) return;
@@ -169,7 +166,6 @@ export function CoachAdvicePanel({ coachAdviceInput, adviceKey, latestAdvice = n
       setUiStatus(hadAdvice ? 'updated' : 'generated');
       setWasUseful(null);
       setUserFeedback('');
-      setIsOpen(true);
 
       if (result.source === 'openai' && userId) {
         void saveCoachAdvice(userId, adviceKey, result.advice, { source: 'openai', inputSnapshot: coachAdviceInput });
@@ -276,19 +272,10 @@ export function CoachAdvicePanel({ coachAdviceInput, adviceKey, latestAdvice = n
           >
             {isGenerating ? 'Generando...' : advice ? 'Regenerar consejo' : 'Generar consejo'}
           </button>
-          <button
-            type="button"
-            aria-expanded={isOpen}
-            aria-controls="coach-advice-content"
-            onClick={() => setIsOpen((current) => !current)}
-            className="rounded-full border border-white/15 bg-white/[0.04] px-3 py-2 text-xs font-black uppercase tracking-[0.16em] text-white transition hover:border-hyrox-gold hover:text-hyrox-gold"
-          >
-            {isOpen ? 'Cerrar Coach IA' : 'Abrir Coach IA'}
-          </button>
         </div>
       </div>
 
-      {isOpen && advice && meta ? (
+      {advice && meta ? (
         <div id="coach-advice-content" className="grid gap-3 border-t border-white/10 p-4 lg:grid-cols-2">
           <div className={`lg:col-span-2 rounded-xl border px-3 py-2 ${meta.className}`}>
             <p className="flex items-center gap-2 font-mono text-xs font-black uppercase tracking-[0.18em]">

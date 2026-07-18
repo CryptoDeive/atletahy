@@ -436,15 +436,14 @@ describe('HYROX Planner UI', () => {
     expect(within(dashboard).getByText('1')).toBeInTheDocument();
   });
 
-  it('starts Coach IA collapsed and compact', () => {
+  it('shows only the generate action before Coach IA has advice', () => {
     renderDemoApp();
 
     const region = screen.getByRole('region', { name: 'Coach IA' });
     const button = within(region).getByRole('button', { name: /Generar consejo/i });
-    const toggle = within(region).getByRole('button', { name: /abrir coach ia/i });
 
     expect(button).toBeInTheDocument();
-    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(within(region).queryByRole('button', { name: /abrir coach ia|cerrar coach ia/i })).not.toBeInTheDocument();
     expect(screen.getByText('Genera una estrategia personalizada para este entrenamiento.')).toBeInTheDocument();
     expect(screen.queryByText(/Resumen/i)).not.toBeInTheDocument();
   });
@@ -461,8 +460,24 @@ describe('HYROX Planner UI', () => {
     expect(screen.getByText(/Nutrición/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Pacing/i).length).toBeGreaterThan(0);
 
-    const closeButton = within(region).getByRole('button', { name: /cerrar coach ia/i });
-    expect(closeButton).toHaveAttribute('aria-expanded', 'true');
+    expect(within(region).queryByRole('button', { name: /abrir coach ia|cerrar coach ia/i })).not.toBeInTheDocument();
+  });
+
+  it('does not render a weekly traffic-light alert', () => {
+    renderDemoApp();
+
+    const dashboard = screen.getByRole('region', { name: /dashboard semanal/i });
+    expect(within(dashboard).queryByText(/Alerta (verde|amarilla|roja)/i)).not.toBeInTheDocument();
+  });
+
+  it('constrains the trainings workspace so only the weekly selector scrolls horizontally', () => {
+    const { container } = renderDemoApp();
+
+    const workspace = container.querySelector('[data-training-workspace]');
+    const weeklyList = within(screen.getByRole('region', { name: 'Selector semanal' })).getByRole('list');
+
+    expect(workspace).toHaveClass('w-full', 'min-w-0');
+    expect(weeklyList).toHaveClass('overflow-x-auto');
   });
 
   it('shows a check-in reminder before generating Coach IA advice when daily check-in is empty', () => {

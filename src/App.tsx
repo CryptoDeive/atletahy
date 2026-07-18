@@ -529,7 +529,7 @@ function RoutedApp() {
       {shouldRenderOnboarding ? <Suspense fallback={<ScreenLoader label="Cargando configuración inicial…" />}><OnboardingView key={storageIdentityKey} athleteState={athleteState} onComplete={handleCompleteOnboarding} onConsentChange={handleConsentChange} onSkip={handleSkipOnboarding} onSavingChange={setIsOnboardingSaving} draftStorageKey={onboardingDraftStorageKey} onDirtyChange={(dirty) => { if (view === 'onboarding') setDirtyView(dirty ? 'onboarding' : null); }} /></Suspense> : null}
 
       {view === 'trainings' && !shouldRenderOnboarding ? (
-        <div key={storageIdentityKey} className="relative mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-5 sm:py-5 lg:px-8">
+        <div key={storageIdentityKey} data-training-workspace className="relative mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-4 px-4 py-4 sm:px-5 sm:py-5 lg:px-8">
           <Suspense fallback={<ScreenLoader label="Cargando generador de planes…" />}><PlanGeneratorPanel
             athleteState={athleteState}
             dailyReadiness={dailyReadiness}

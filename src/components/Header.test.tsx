@@ -64,4 +64,37 @@ describe('Header private navigation', () => {
     fireEvent.click(trainingsLink);
     expect(onNavigate).not.toHaveBeenCalled();
   });
+
+  it('does not expose technical connection state when there is no authenticated user', () => {
+    render(
+      <Header
+        mode="private"
+        activeView="trainings"
+        onNavigate={vi.fn()}
+        onAuthIntent={vi.fn()}
+        authEmail={null}
+      />,
+    );
+
+    expect(screen.queryByText('Supabase conectado')).not.toBeInTheDocument();
+    expect(screen.queryByText('Modo local')).not.toBeInTheDocument();
+  });
+
+  it('keeps the mobile bottom navigation fixed without a transformed header ancestor', () => {
+    const { container } = render(
+      <Header
+        mode="private"
+        activeView="trainings"
+        onNavigate={vi.fn()}
+        onAuthIntent={vi.fn()}
+      />,
+    );
+
+    const header = container.querySelector('header');
+    const navigation = screen.getByRole('navigation', { name: 'Principal' });
+
+    expect(header).not.toHaveClass('backdrop-blur');
+    expect(navigation).not.toHaveClass('backdrop-blur');
+    expect(navigation).toHaveClass('fixed', 'bottom-0');
+  });
 });
