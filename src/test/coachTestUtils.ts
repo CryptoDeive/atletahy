@@ -1,0 +1,111 @@
+import { trainingWeeks } from '../data/trainingWeeks';
+import type { CoachAdvice, CoachAdviceInput } from '../types/coach';
+
+export function buildCoachAdviceInput(overrides: Partial<CoachAdviceInput> = {}): CoachAdviceInput {
+  const activeWeek = trainingWeeks[1];
+  const activeDay = activeWeek.days[0];
+
+  return {
+    profile: {
+      name: 'Deivi',
+      birthDate: '1990-04-12',
+      heightCm: 178,
+      weightKg: 77,
+      sex: 'male',
+      hyroxCategory: 'Open Men',
+      targetDate: '2026-10-01',
+      mainGoal: 'mejorar_marca',
+    },
+    physiology: {
+      restingHrBaseline: 50,
+      restingHrToday: 54,
+      maxHr: 190,
+      lthr: 174,
+      rftp: '4:20/km',
+      z2PaceLow: '5:15/km',
+      z2PaceHigh: '5:45/km',
+      fiveKPace: '4:05/km',
+      tenKPace: '4:20/km',
+      hrvBaseline: 72,
+    },
+    availability: {
+      availableDays: ['lunes', 'miércoles', 'sábado'],
+      preferredTrainingTime: 'mañana',
+      maxSessionMinutes: 90,
+      canDoubleSession: true,
+      minHoursBetweenSessions: 8,
+      scheduleNotes: '',
+    },
+    equipment: {
+      skiErg: true,
+      rowErg: true,
+      bikeErg: true,
+      assaultBike: true,
+      sled: true,
+      wallBall: true,
+      sandbag: true,
+      kettlebells: true,
+      dumbbells: true,
+      barbellAndPlates: true,
+      treadmill: true,
+      runningSpace: true,
+      plyoBox: true,
+    },
+    activeInjuries: [],
+    nutrition: {
+      goal: 'rendimiento',
+      dietType: 'Omnívora',
+      allergies: '',
+      intolerances: '',
+      caffeineTolerance: 'media',
+      fastedTrainingPreference: 'evitar',
+      mealTiming: '',
+      supplements: '',
+      notes: '',
+    },
+    dailyReadiness: {
+      date: '2026-07-06',
+      sleepHours: 7.5,
+      sleepQuality1To5: 4,
+      stress1To5: 2,
+      fatigue1To5: 2,
+      muscleSoreness1To5: 2,
+      legSoreness1To5: 2,
+      upperSoreness1To5: 2,
+      motivation1To5: 5,
+      hydration1To5: 4,
+      pain0To10: 1,
+      painLocation: '',
+      notes: '',
+    },
+    activeWorkout: { week: activeWeek, day: activeDay },
+    currentWorkoutLog: null,
+    recentWorkoutLogs: [],
+    ...overrides,
+  };
+}
+
+export const validCoachAdvice: CoachAdvice = {
+  readinessStatus: 'green',
+  summary: 'Estado verde con buena disposición para entrenar.',
+  objective: 'Ejecutar la sesión con pacing progresivo y técnica estable.',
+  strategy: ['Prioriza calidad y transiciones limpias.'],
+  pacing: ['Empieza controlado y aprieta al final si la técnica se mantiene.'],
+  techniqueFocus: ['Postura alta y respiración estable.'],
+  warmupAdjustments: ['Calentamiento progresivo de 10 minutos.'],
+  riskWarnings: ['Para si aparece dolor agudo o creciente.'],
+  modifications: [{ condition: 'Sin limitaciones', recommendation: 'Mantén el plan original.', keepOriginalIntent: true }],
+  nutrition: {
+    preWorkout: ['Carbohidrato fácil 2-3 h antes.'],
+    intraWorkout: ['Agua a sorbos.'],
+    postWorkout: ['Proteína y carbohidratos tras entrenar.'],
+    hydration: ['Llega hidratado.'],
+    caffeine: 'Solo si la toleras y no compromete el sueño.',
+  },
+  scheduling: {
+    bestTimeWindow: 'morning',
+    reason: 'Encaja con tu preferencia horaria.',
+    doubleSessionRecommended: false,
+  },
+  checklist: ['Revisa material', 'Registra RPE al terminar'],
+};
