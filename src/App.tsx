@@ -456,6 +456,7 @@ function RoutedApp() {
       activeView={view}
       authEmail={authSession?.email}
       onNavigate={handleNavigate}
+      onBrandNavigate={() => go('/')}
       onAuthIntent={handleAuthIntent}
       coachReady={coachAdviceInput.activeInjuries.length >= 0}
       navigationDisabled={isOnboardingNavigationLocked}

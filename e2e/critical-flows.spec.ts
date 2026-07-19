@@ -28,6 +28,25 @@ test('demo: public entry opens the private training experience locally', async (
   await expect(page.getByRole('navigation', { name: /principal/i }).getByRole('link', { name: 'Entrenamientos' })).toHaveAttribute('aria-current', 'page');
 });
 
+test('demo: the brand returns home and Semana 5 exposes day-specific sessions', async ({ page }) => {
+  await page.goto('/demo/trainings');
+
+  await page.getByRole('button', { name: /Abrir selector de semana/i }).click();
+  await page.getByRole('button', { name: /^5, Semana 5$/i }).click();
+  await expect(page.getByRole('heading', { name: 'Base aeróbica', exact: true })).toBeVisible();
+  await expect(page.getByText(/deberías poder hablar en frases completas/i)).toBeVisible();
+
+  await page.getByRole('button', { name: /Martes/i }).click();
+  await expect(page.getByRole('heading', { name: 'Fuerza técnica', exact: true })).toBeVisible();
+  await expect(page.getByText(/3-4 repeticiones en reserva/i)).toBeVisible();
+
+  const brand = page.getByRole('link', { name: 'Ir a la página de inicio de AtletaHY' });
+  await expect(brand).toHaveAttribute('href', '/');
+  await brand.click();
+  await expect(page).toHaveURL('/');
+  await expect(page.getByRole('heading', { name: /Prepara tu HYROX con un plan que se adapta a ti/i })).toBeVisible();
+});
+
 test('onboarding: an isolated guest draft survives a reload', async ({ page }) => {
   await page.goto('/demo/onboarding');
   await page.getByLabel('Fecha de competición').fill('2026-11-22');

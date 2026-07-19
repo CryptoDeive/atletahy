@@ -9,6 +9,7 @@ interface HeaderProps {
   mode: HeaderMode;
   activeView: HeaderView;
   onNavigate: (view: HeaderView) => void;
+  onBrandNavigate?: () => void;
   onAuthIntent: (mode: AuthMode) => void;
   authEmail?: string | null;
   navigationDisabled?: boolean;
@@ -22,7 +23,7 @@ function navClass(isActive = false, isDisabled = false) {
   }`;
 }
 
-export function Header({ mode, activeView, onNavigate, onAuthIntent, authEmail, navigationDisabled = false }: HeaderProps) {
+export function Header({ mode, activeView, onNavigate, onBrandNavigate, onAuthIntent, authEmail, navigationDisabled = false }: HeaderProps) {
   function handlePrivateNavigate(event: MouseEvent<HTMLAnchorElement>, nextView: HeaderView) {
     event.preventDefault();
     if (navigationDisabled) {
@@ -77,15 +78,21 @@ export function Header({ mode, activeView, onNavigate, onAuthIntent, authEmail, 
   return (
     <header className="sticky top-0 z-20 border-b border-white/10 bg-hyrox-black">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-5 lg:px-8">
-        <button
-          type="button"
-          onClick={() => onNavigate('trainings')}
-          disabled={navigationDisabled}
-          className="text-left disabled:cursor-not-allowed disabled:opacity-45"
+        <a
+          href="/"
+          aria-label="Ir a la página de inicio de AtletaHY"
+          aria-disabled={navigationDisabled}
+          tabIndex={navigationDisabled ? -1 : undefined}
+          onClick={(event) => {
+            event.preventDefault();
+            if (navigationDisabled) return;
+            onBrandNavigate?.();
+          }}
+          className={`text-left transition focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-hyrox-gold ${navigationDisabled ? 'cursor-not-allowed opacity-45' : 'hover:opacity-80'}`}
         >
           <p className="text-[0.65rem] font-black uppercase tracking-[0.32em] text-hyrox-gold">Base season</p>
           <h1 className="font-display text-2xl uppercase leading-none tracking-tight text-white sm:text-3xl">HYROX Planner</h1>
-        </button>
+        </a>
         <div className="flex items-center gap-2 sm:justify-end">
           {activeView !== 'account' && authEmail ? (
             <div className="hidden md:block">

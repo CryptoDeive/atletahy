@@ -5,6 +5,25 @@ import { describe, expect, it, vi } from 'vitest';
 import { Header } from './Header';
 
 describe('Header private navigation', () => {
+  it('uses an accessible home link for the private brand', () => {
+    const onBrandNavigate = vi.fn();
+
+    render(
+      <Header
+        mode="private"
+        activeView="trainings"
+        onNavigate={vi.fn()}
+        onBrandNavigate={onBrandNavigate}
+        onAuthIntent={vi.fn()}
+      />,
+    );
+
+    const brand = screen.getByRole('link', { name: 'Ir a la página de inicio de AtletaHY' });
+    expect(brand).toHaveAttribute('href', '/');
+    fireEvent.click(brand);
+    expect(onBrandNavigate).toHaveBeenCalledOnce();
+  });
+
   it('keeps the responsive shell source encoded as UTF-8 without BOM', () => {
     for (const sourcePath of ['src/components/Header.tsx', 'src/components/layout/AppShell.tsx']) {
       const source = readFileSync(resolve(process.cwd(), sourcePath));

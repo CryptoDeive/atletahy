@@ -8,6 +8,7 @@ interface AppShellProps {
   activeView: HeaderView;
   authEmail?: string | null;
   onNavigate: (view: HeaderView) => void;
+  onBrandNavigate?: () => void;
   onAuthIntent: (mode: AuthMode) => void;
   children: ReactNode;
   coachReady?: boolean;
@@ -15,7 +16,7 @@ interface AppShellProps {
   focusKey?: string;
 }
 
-export function AppShell({ mode, activeView, authEmail, onNavigate, onAuthIntent, children, coachReady = true, navigationDisabled = false, focusKey }: AppShellProps) {
+export function AppShell({ mode, activeView, authEmail, onNavigate, onBrandNavigate, onAuthIntent, children, coachReady = true, navigationDisabled = false, focusKey }: AppShellProps) {
   const mainRef = useRef<HTMLElement>(null);
   const previousFocusKey = useRef(focusKey);
 
@@ -34,7 +35,7 @@ export function AppShell({ mode, activeView, authEmail, onNavigate, onAuthIntent
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_80%_0%,rgba(246,201,76,0.08),transparent_28%)]" />
       <div className="pointer-events-none fixed inset-0 bg-grid bg-[length:72px_72px] opacity-[0.22]" />
       <a className="skip-link" href="#main-content">Saltar al contenido principal</a>
-      <Header mode={mode} activeView={activeView} authEmail={authEmail} onNavigate={onNavigate} onAuthIntent={onAuthIntent} navigationDisabled={navigationDisabled} />
+      <Header mode={mode} activeView={activeView} authEmail={authEmail} onNavigate={onNavigate} onBrandNavigate={onBrandNavigate} onAuthIntent={onAuthIntent} navigationDisabled={navigationDisabled} />
       <main id="main-content" ref={mainRef} tabIndex={-1} className="flex min-h-[calc(100vh-5rem)] flex-col">
         {children}
       </main>

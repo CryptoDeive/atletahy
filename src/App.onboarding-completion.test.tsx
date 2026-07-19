@@ -145,7 +145,7 @@ describe('App onboarding completion persistence', () => {
     fillOnboardingUntilFinish();
     fireEvent.click(screen.getByRole('button', { name: 'Finalizar' }));
 
-    expect(screen.getByRole('button', { name: /HYROX Planner/i })).toBeDisabled();
+    expect(screen.getByRole('link', { name: 'Ir a la página de inicio de AtletaHY' })).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByRole('link', { name: 'Entrenamientos' })).toHaveAttribute('aria-disabled', 'true');
     expect(screen.queryByRole('link', { name: 'Plan IA' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Tests & Ergs' })).toHaveAttribute('aria-disabled', 'true');
@@ -154,7 +154,7 @@ describe('App onboarding completion persistence', () => {
     fireEvent.click(screen.getByRole('button', { name: /1\.\s*Objetivo/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Atrás' }));
     fireEvent.click(screen.getByRole('button', { name: 'Saltar por ahora' }));
-    fireEvent.click(screen.getByRole('button', { name: /HYROX Planner/i }));
+    fireEvent.click(screen.getByRole('link', { name: 'Ir a la página de inicio de AtletaHY' }));
     fireEvent.click(screen.getByRole('link', { name: 'Mi perfil' }));
 
     expect(screen.getByRole('heading', { name: 'Configura tu preparación HYROX', level: 2 })).toBeInTheDocument();
@@ -188,7 +188,7 @@ describe('App onboarding completion persistence', () => {
     fillOnboardingUntilFinish();
     fireEvent.click(screen.getByRole('button', { name: 'Finalizar' }));
 
-    expect(screen.getByRole('button', { name: /HYROX Planner/i })).toBeDisabled();
+    expect(screen.getByRole('link', { name: 'Ir a la página de inicio de AtletaHY' })).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByRole('link', { name: 'Mi perfil' })).toHaveAttribute('aria-disabled', 'true');
 
     fireEvent.click(screen.getByRole('link', { name: 'Mi perfil' }));
@@ -198,7 +198,7 @@ describe('App onboarding completion persistence', () => {
     rejectSave?.(new Error('Supabase unavailable'));
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/no se pudo guardar/i));
 
-    expect(screen.getByRole('button', { name: /HYROX Planner/i })).not.toBeDisabled();
+    expect(screen.getByRole('link', { name: 'Ir a la página de inicio de AtletaHY' })).toHaveAttribute('aria-disabled', 'false');
     expect(screen.getByRole('link', { name: 'Mi perfil' })).toHaveAttribute('aria-disabled', 'false');
 
     fireEvent.click(screen.getByRole('link', { name: 'Mi perfil' }));

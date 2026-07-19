@@ -74,4 +74,20 @@ describe('trainingWeeks data', () => {
       }),
     ]);
   });
+
+  it('gives every Semana 5 day session-specific training details and athlete-facing notes', () => {
+    const week5 = trainingWeeks.find((week) => week.id === 'week-5');
+    const sectionSignatures = week5?.days.map((day) => JSON.stringify(day.sections));
+
+    expect(new Set(sectionSignatures).size).toBe(7);
+    for (const day of week5?.days ?? []) {
+      expect(day.sections.length).toBeGreaterThan(0);
+      expect(day.sections.flatMap((section) => section.notes ?? []).length).toBeGreaterThan(0);
+    }
+
+    const serializedWeek = JSON.stringify(week5);
+    expect(serializedWeek).not.toContain('Mock coherente');
+    expect(serializedWeek).not.toContain('selector de semanas');
+    expect(serializedWeek).not.toContain('datos reales');
+  });
 });
