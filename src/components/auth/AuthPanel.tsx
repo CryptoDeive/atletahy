@@ -130,7 +130,10 @@ export function AuthPanel({ onSessionChange, preferredMode = 'login', focusSigna
     const { error } = await supabase.auth.signUp({
       email: safeEmail,
       password,
-      options: { data: buildSignupLegalMetadata() },
+      options: {
+        data: buildSignupLegalMetadata(),
+        emailRedirectTo: window.location.origin,
+      },
     });
     setIsSubmitting(false);
 

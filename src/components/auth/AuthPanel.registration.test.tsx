@@ -37,6 +37,9 @@ describe('AuthPanel registration submission', () => {
     fireEvent.submit(form!);
 
     await waitFor(() => expect(mocks.signUp).toHaveBeenCalledTimes(1));
+    expect(mocks.signUp).toHaveBeenCalledWith(expect.objectContaining({
+      options: expect.objectContaining({ emailRedirectTo: window.location.origin }),
+    }));
     expect(mocks.signInWithPassword).not.toHaveBeenCalled();
   });
 });
