@@ -60,7 +60,7 @@ describe('CoachAdvicePanel', () => {
     expect(screen.queryByRole('button', { name: /regenerar consejo/i })).not.toBeInTheDocument();
   });
 
-  it('shows Coach IA badge when remote advice is generated', async () => {
+  it('shows remote advice without visual status or source badges', async () => {
     generateCoachAdvice.mockResolvedValue({ advice: validCoachAdvice, source: 'openai' });
     const { CoachAdvicePanel } = await import('./CoachAdvicePanel');
 
@@ -72,6 +72,8 @@ describe('CoachAdvicePanel', () => {
 
     expect(await screen.findByText('Coach IA')).toBeInTheDocument();
     expect(screen.getByText('Consejo generado ahora')).toBeInTheDocument();
+    expect(screen.queryByText(/^Verde$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Estado verde$/i)).not.toBeInTheDocument();
     await waitFor(() => expect(saveCoachAdvice).toHaveBeenCalledWith('user-1', adviceKey, validCoachAdvice, expect.objectContaining({ source: 'openai' })));
   });
 
@@ -154,7 +156,7 @@ describe('CoachAdvicePanel', () => {
     expect(screen.getByText(/inicia sesión para guardar el feedback/i)).toBeInTheDocument();
   });
 
-  it('shows fallback badge and warning when remote advice fails', async () => {
+  it('keeps the fallback warning without showing a local-backup badge', async () => {
     generateCoachAdvice.mockResolvedValue({
       advice: validCoachAdvice,
       source: 'fallback',
@@ -166,8 +168,10 @@ describe('CoachAdvicePanel', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /generar consejo/i }));
 
-    expect(await screen.findByText('Respaldo local')).toBeInTheDocument();
-    expect(screen.getByText(/No se pudo usar Coach IA real/i)).toBeInTheDocument();
+    expect(await screen.findByText(/No se pudo usar Coach IA real/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^Respaldo local$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Verde$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Estado verde$/i)).not.toBeInTheDocument();
     expect(saveCoachAdvice).not.toHaveBeenCalled();
   });
 });

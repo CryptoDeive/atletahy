@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { getCoachAdvice, saveCoachAdvice, saveCoachAdviceFeedback } from '../repositories/appRepository';
 import { generateCoachAdvice, type CoachAdviceSource } from '../services/coachService';
-import type { CoachAdvice, CoachAdviceInput, ReadinessStatus } from '../types/coach';
+import type { CoachAdvice, CoachAdviceInput } from '../types/coach';
 import { applyCoachSafetyOverrides, evaluateTrainingSafety } from '../shared/trainingSafety';
 
 interface CoachAdvicePanelProps {
@@ -13,6 +13,22 @@ interface CoachAdvicePanelProps {
 }
 
 type AdviceUiStatus = 'idle' | 'generated' | 'loaded' | 'updated';
+
+function sourceMeta(source: CoachAdviceSource, status: AdviceUiStatus, hasUserSession: boolean) {
+  if (status === 'loaded' && hasUserSession) {
+    return { label: 'Coach IA guardado', className: 'border-sky-300/40 bg-sky-300/10 text-sky-100' };
+  }
+
+  if (source === 'openai') {
+    return { label: 'Coach IA', className: 'border-sky-300/40 bg-sky-300/10 text-sky-100' };
+  }
+
+  if (source === 'local') {
+    return { label: 'Coach local', className: 'border-white/15 bg-white/[0.05] text-white/70' };
+  }
+
+  return null;
+}
 
 function hasDailyCheckIn(input: CoachAdviceInput) {
   const readiness = input.dailyReadiness;
@@ -32,58 +48,6 @@ function hasDailyCheckIn(input: CoachAdviceInput) {
     readiness.painLocation,
     readiness.notes,
   ].some((value) => value !== '' && value !== null && value !== undefined);
-}
-
-function readinessMeta(status: ReadinessStatus) {
-  if (status === 'green') {
-    return {
-      label: 'Verde',
-      className: 'border-emerald-400/40 bg-emerald-400/10 text-emerald-200',
-      dot: 'bg-emerald-300',
-    };
-  }
-
-  if (status === 'yellow') {
-    return {
-      label: 'Amarillo',
-      className: 'border-hyrox-gold/50 bg-hyrox-gold/10 text-hyrox-gold',
-      dot: 'bg-hyrox-gold',
-    };
-  }
-
-  return {
-    label: 'Rojo',
-    className: 'border-red-400/50 bg-red-500/10 text-red-200',
-    dot: 'bg-red-300',
-  };
-}
-
-function sourceMeta(source: CoachAdviceSource, status: AdviceUiStatus, hasUserSession: boolean) {
-  if (status === 'loaded' && hasUserSession) {
-    return {
-      label: 'Coach IA guardado',
-      className: 'border-sky-300/40 bg-sky-300/10 text-sky-100',
-    };
-  }
-
-  if (source === 'openai') {
-    return {
-      label: 'Coach IA',
-      className: 'border-sky-300/40 bg-sky-300/10 text-sky-100',
-    };
-  }
-
-  if (source === 'fallback') {
-    return {
-      label: 'Respaldo local',
-      className: 'border-amber-300/45 bg-amber-300/10 text-amber-100',
-    };
-  }
-
-  return {
-    label: 'Coach local',
-    className: 'border-white/15 bg-white/[0.05] text-white/70',
-  };
 }
 
 function statusText(status: AdviceUiStatus, hasUserSession: boolean) {
@@ -160,8 +124,8 @@ export function CoachAdvicePanel({ coachAdviceInput, adviceKey, latestAdvice = n
     setFeedbackMessage(null);
     try {
       const result = await generateCoachAdvice(coachAdviceInput);
-      setAdvice(result.advice);
       setAdviceSource(result.source);
+      setAdvice(result.advice);
       setSourceError(result.error ?? null);
       setUiStatus(hadAdvice ? 'updated' : 'generated');
       setWasUseful(null);
@@ -195,9 +159,8 @@ export function CoachAdvicePanel({ coachAdviceInput, adviceKey, latestAdvice = n
   }
 
   const advice = rawAdvice ? applyCoachSafetyOverrides(rawAdvice, evaluateTrainingSafety({ dailyReadiness: coachAdviceInput.dailyReadiness as unknown as Record<string, unknown>, injuries: coachAdviceInput.activeInjuries })) : null;
-  const meta = advice ? readinessMeta(advice.readinessStatus) : null;
-  const source = sourceMeta(adviceSource, uiStatus, hasUserSession);
   const currentStatusText = statusText(uiStatus, hasUserSession);
+  const source = sourceMeta(adviceSource, uiStatus, hasUserSession);
   const nutritionItems = advice
     ? [
         ...advice.nutrition.preWorkout.map((item) => `Antes: ${item}`),
@@ -237,13 +200,7 @@ export function CoachAdvicePanel({ coachAdviceInput, adviceKey, latestAdvice = n
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-display text-2xl uppercase leading-none text-white">Coach IA</h3>
-            {advice && meta ? (
-              <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[0.65rem] font-black uppercase tracking-[0.16em] ${meta.className}`}>
-                <span aria-hidden="true" className={`h-2 w-2 rounded-full ${meta.dot}`} />
-                {meta.label}
-              </span>
-            ) : null}
-            {advice ? (
+            {advice && source ? (
               <span className={`inline-flex items-center rounded-full border px-2.5 py-1 font-mono text-[0.65rem] font-black uppercase tracking-[0.16em] ${source.className}`}>
                 {source.label}
               </span>
@@ -275,15 +232,8 @@ export function CoachAdvicePanel({ coachAdviceInput, adviceKey, latestAdvice = n
         </div>
       </div>
 
-      {advice && meta ? (
+      {advice ? (
         <div id="coach-advice-content" className="grid gap-3 border-t border-white/10 p-4 lg:grid-cols-2">
-          <div className={`lg:col-span-2 rounded-xl border px-3 py-2 ${meta.className}`}>
-            <p className="flex items-center gap-2 font-mono text-xs font-black uppercase tracking-[0.18em]">
-              <span aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${meta.dot}`} />
-              Estado {meta.label}
-            </p>
-          </div>
-
           <div className="lg:col-span-2 rounded-xl border border-white/[0.07] bg-white/[0.03] p-3">
             <h4 className="font-mono text-[0.66rem] font-black uppercase tracking-[0.2em] text-hyrox-gold">Resumen</h4>
             <p className="mt-2 text-sm font-semibold leading-relaxed text-white/78">{advice.summary}</p>
