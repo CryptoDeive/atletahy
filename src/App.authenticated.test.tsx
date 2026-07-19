@@ -38,7 +38,8 @@ describe('HYROX Planner authenticated shell', () => {
     render(<App />);
 
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Configura tu preparación HYROX', level: 2 })).toBeInTheDocument());
-    expect(screen.getByText('HYROX Planner')).toBeInTheDocument();
+    expect(screen.getByText('ATLETAHY')).toBeInTheDocument();
+    expect(screen.getByText('HYBRID TRAINING WITH AI')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Planifica tu preparación HYROX con IA', level: 1 })).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: /Dashboard semanal/i })).not.toBeInTheDocument();
   });

@@ -58,7 +58,8 @@ describe('HYROX Planner UI', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ver demo' }));
 
     const privateHeader = screen.getByRole('banner');
-    expect(within(privateHeader).getByText('HYROX Planner')).toBeInTheDocument();
+    expect(within(privateHeader).getByText('ATLETAHY')).toBeInTheDocument();
+    expect(within(privateHeader).getByText('HYBRID TRAINING WITH AI')).toBeInTheDocument();
     expect(within(privateHeader).getByRole('link', { name: 'Entrenamientos' })).toBeInTheDocument();
     expect(within(privateHeader).getByRole('link', { name: 'Tests & Ergs' })).toBeInTheDocument();
     expect(within(privateHeader).getByRole('link', { name: 'Mi perfil' })).toBeInTheDocument();
@@ -512,7 +513,6 @@ describe('HYROX Planner UI', () => {
     expect(screen.getByText('Completa el check-in diario en Mi cuenta para recibir un consejo más preciso.')).toBeInTheDocument();
   });
 });
-
 
 
 

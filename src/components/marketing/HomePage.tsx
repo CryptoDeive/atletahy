@@ -1,10 +1,12 @@
 import { AuthPanel, type AuthMode, type AuthSessionInfo } from '../auth/AuthPanel';
 
 interface HomePageProps {
+  authenticated: boolean;
   authMode: AuthMode;
   authFocusSignal: number;
   onAuthIntent: (mode: AuthMode) => void;
   onDemo: () => void;
+  onOpenApp: () => void;
   onSessionChange: (session: AuthSessionInfo | null) => void;
 }
 
@@ -23,7 +25,7 @@ const howItWorks = [
   },
 ];
 
-export function HomePage({ authMode, authFocusSignal, onAuthIntent, onDemo, onSessionChange }: HomePageProps) {
+export function HomePage({ authenticated, authMode, authFocusSignal, onAuthIntent, onDemo, onOpenApp, onSessionChange }: HomePageProps) {
   const showAuthPanel = authFocusSignal > 0;
 
   return (
@@ -33,7 +35,7 @@ export function HomePage({ authMode, authFocusSignal, onAuthIntent, onDemo, onSe
         <div className="pointer-events-none absolute bottom-0 right-0 h-44 w-2/3 -skew-x-12 border-t border-hyrox-gold/20 bg-hyrox-gold/[0.025]" />
         <div className="relative max-w-5xl">
           <p className="font-mono text-[0.68rem] font-black uppercase tracking-[0.28em] text-hyrox-gold">
-            ATLETAHY / HYBRID TRAINING
+            ENTRENAMIENTO HÍBRIDO / PREPARACIÓN HYROX
           </p>
           <h1 className="mt-5 max-w-5xl font-display text-4xl uppercase leading-[0.9] tracking-tight text-white sm:text-5xl lg:text-7xl">
             PREPARA TU HYROX CON UN PLAN QUE SE ADAPTA A TI
@@ -45,44 +47,58 @@ export function HomePage({ authMode, authFocusSignal, onAuthIntent, onDemo, onSe
             Entrenamiento híbrido y preparación HYROX con IA
           </p>
           <div className="mt-8 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => onAuthIntent('register')}
-              className="rounded-full border border-hyrox-gold bg-hyrox-gold px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-black transition hover:bg-white"
-            >
-              Crear cuenta
-            </button>
-            <button
-              type="button"
-              onClick={() => onAuthIntent('login')}
-              className="rounded-full border border-white/15 bg-white/[0.05] px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-white transition hover:border-hyrox-gold hover:text-hyrox-gold"
-            >
-              Iniciar sesión
-            </button>
-            <button
-              type="button"
-              onClick={onDemo}
-              className="rounded-full border border-white/10 bg-black/30 px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-white/72 transition hover:border-white/35 hover:text-white"
-            >
-              Ver demo
-            </button>
+            {authenticated ? (
+              <button
+                type="button"
+                onClick={onOpenApp}
+                className="rounded-full border border-hyrox-gold bg-hyrox-gold px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-black transition hover:bg-white"
+              >
+                Ir a entrenamientos
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onAuthIntent('register')}
+                  className="rounded-full border border-hyrox-gold bg-hyrox-gold px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-black transition hover:bg-white"
+                >
+                  Crear cuenta
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onAuthIntent('login')}
+                  className="rounded-full border border-white/15 bg-white/[0.05] px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-white transition hover:border-hyrox-gold hover:text-hyrox-gold"
+                >
+                  Iniciar sesión
+                </button>
+                <button
+                  type="button"
+                  onClick={onDemo}
+                  className="rounded-full border border-white/10 bg-black/30 px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-white/72 transition hover:border-white/35 hover:text-white"
+                >
+                  Ver demo
+                </button>
+              </>
+            )}
           </div>
         </div>
       </section>
 
-      <div
-        id="entrar"
-        aria-hidden={!showAuthPanel}
-        className={showAuthPanel ? 'rounded-3xl border border-hyrox-gold/20 bg-hyrox-panel/70 p-4 sm:p-5' : 'hidden'}
-      >
-        <AuthPanel
-          compact
-          publicFacing
-          preferredMode={authMode}
-          focusSignal={authFocusSignal}
-          onSessionChange={onSessionChange}
-        />
-      </div>
+      {!authenticated ? (
+        <div
+          id="entrar"
+          aria-hidden={!showAuthPanel}
+          className={showAuthPanel ? 'rounded-3xl border border-hyrox-gold/20 bg-hyrox-panel/70 p-4 sm:p-5' : 'hidden'}
+        >
+          <AuthPanel
+            compact
+            publicFacing
+            preferredMode={authMode}
+            focusSignal={authFocusSignal}
+            onSessionChange={onSessionChange}
+          />
+        </div>
+      ) : null}
 
       <section id="como-funciona" aria-labelledby="how-title" className="rounded-3xl border border-white/10 bg-hyrox-panel/70 p-4 sm:p-5">
         <p className="font-mono text-[0.68rem] font-black uppercase tracking-[0.22em] text-hyrox-gold">Cómo funciona</p>
@@ -103,13 +119,11 @@ export function HomePage({ authMode, authFocusSignal, onAuthIntent, onDemo, onSe
       <section className="rounded-3xl border border-hyrox-gold/20 bg-black/35 px-5 py-6 text-center sm:px-8" aria-labelledby="cta-title">
         <h2 id="cta-title" className="font-display text-3xl uppercase leading-none text-white sm:text-4xl">EMPIEZA TU PREPARACIÓN</h2>
         <p className="mt-3 text-sm font-semibold text-white/60">Configura tu perfil y crea un plan adaptado a tu realidad.</p>
-        <button
-          type="button"
-          onClick={() => onAuthIntent('register')}
-          className="mt-5 rounded-full border border-hyrox-gold bg-hyrox-gold px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-black transition hover:bg-white"
-        >
-          Crear cuenta
-        </button>
+        {authenticated ? (
+          <button type="button" onClick={onOpenApp} className="mt-5 rounded-full border border-hyrox-gold bg-hyrox-gold px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-black transition hover:bg-white">Volver a mis entrenamientos</button>
+        ) : (
+          <button type="button" onClick={() => onAuthIntent('register')} className="mt-5 rounded-full border border-hyrox-gold bg-hyrox-gold px-5 py-3 text-xs font-black uppercase tracking-[0.18em] text-black transition hover:bg-white">Crear cuenta</button>
+        )}
       </section>
 
       <p className="px-4 pb-3 text-center text-[0.68rem] font-semibold leading-relaxed text-white/35">

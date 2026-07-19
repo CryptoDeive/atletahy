@@ -20,6 +20,9 @@ describe('Header private navigation', () => {
 
     const brand = screen.getByRole('link', { name: 'Ir a la página de inicio de AtletaHY' });
     expect(brand).toHaveAttribute('href', '/');
+    expect(within(brand).getByText('ATLETAHY')).toBeInTheDocument();
+    expect(within(brand).getByText('HYBRID TRAINING WITH AI')).toBeInTheDocument();
+    expect(within(brand).queryByText(/Base season|HYROX Planner/i)).not.toBeInTheDocument();
     fireEvent.click(brand);
     expect(onBrandNavigate).toHaveBeenCalledOnce();
   });

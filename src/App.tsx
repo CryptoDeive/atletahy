@@ -487,7 +487,7 @@ function RoutedApp() {
 
   const isLegalPage = Boolean(route.legalDocument);
   const isPublicHome = view === 'publicHome' && !isLegalPage;
-  const shellMode = view === 'publicHome' ? 'public' : 'private';
+  const shellMode = view === 'publicHome' && !authSession ? 'public' : 'private';
   if (!authResolved && route.mode === 'app') return <main className="min-h-screen bg-hyrox-black p-8 text-white">Comprobando sesión…</main>;
   return (
     <AppShell
@@ -508,10 +508,12 @@ function RoutedApp() {
       ) : null}
       {isPublicHome ? (
         <HomePage
+          authenticated={Boolean(authSession)}
           authMode={authMode}
           authFocusSignal={authFocusSignal}
           onAuthIntent={handleAuthIntent}
           onDemo={() => navigate('/demo/trainings')}
+          onOpenApp={() => navigate('/app/trainings')}
           onSessionChange={handleAuthSessionChange}
         />
       ) : null}

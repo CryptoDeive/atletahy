@@ -90,8 +90,8 @@ export function Header({ mode, activeView, onNavigate, onBrandNavigate, onAuthIn
           }}
           className={`text-left transition focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-hyrox-gold ${navigationDisabled ? 'cursor-not-allowed opacity-45' : 'hover:opacity-80'}`}
         >
-          <p className="text-[0.65rem] font-black uppercase tracking-[0.32em] text-hyrox-gold">Base season</p>
-          <h1 className="font-display text-2xl uppercase leading-none tracking-tight text-white sm:text-3xl">HYROX Planner</h1>
+          <p className="text-[0.65rem] font-black uppercase tracking-[0.32em] text-hyrox-gold">ATLETAHY</p>
+          <p className="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-white/62">HYBRID TRAINING WITH AI</p>
         </a>
         <div className="flex items-center gap-2 sm:justify-end">
           {activeView !== 'account' && authEmail ? (
