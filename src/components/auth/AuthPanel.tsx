@@ -141,7 +141,10 @@ export function AuthPanel({ onSessionChange, preferredMode = 'login', focusSigna
       logUiError('auth.sign-up', error);
       setMessage(normalizeUiError(error, { code: 'AUTH_SIGN_UP_FAILED', message: 'No se pudo completar el registro. Revisa tus datos e inténtalo de nuevo.' }).message);
     } else {
-      setMessage(publicFacing ? 'Registro creado. Revisa tu correo para confirmar la cuenta.' : 'Registro creado. Revisa el correo si Supabase requiere confirmación.');
+      setAuthMode('login');
+      setMessage(publicFacing
+        ? 'Si la cuenta necesita confirmación, recibirás un correo. Si ya estaba creada o confirmada, inicia sesión con tus datos.'
+        : 'Si la cuenta necesita confirmación, recibirás un correo. Si ya existía, puedes iniciar sesión.');
     }
   }
 

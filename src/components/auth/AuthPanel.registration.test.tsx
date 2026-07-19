@@ -41,5 +41,7 @@ describe('AuthPanel registration submission', () => {
       options: expect.objectContaining({ emailRedirectTo: window.location.origin }),
     }));
     expect(mocks.signInWithPassword).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Acceso a AtletaHY')).toHaveAttribute('data-auth-mode', 'login');
+    expect(screen.getByText(/Si la cuenta necesita confirmación, recibirás un correo/)).toBeInTheDocument();
   });
 });
