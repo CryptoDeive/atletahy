@@ -43,7 +43,7 @@ describe('HYROX Planner authenticated shell', () => {
     expect(screen.queryByRole('region', { name: /Dashboard semanal/i })).not.toBeInTheDocument();
   });
 
-  it('shows Entrenamientos automatically when onboarding is completed', async () => {
+  it('shows a real empty plan state without demo fixtures when onboarding is completed', async () => {
     window.localStorage.setItem('atletahy:user-1:athlete-profile', JSON.stringify({
       name: '',
       birthDate: '',
@@ -68,7 +68,9 @@ describe('HYROX Planner authenticated shell', () => {
 
     render(<App />);
 
-    await waitFor(() => expect(screen.getByRole('region', { name: /Dashboard semanal/i })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Tu calendario empieza aqu/i })).toBeInTheDocument());
+    expect(screen.queryByRole('region', { name: /Dashboard semanal/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Pretemporada .* Semana [56]/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Configura tu preparación HYROX', level: 2 })).not.toBeInTheDocument();
   });
 
@@ -78,7 +80,7 @@ describe('HYROX Planner authenticated shell', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Configura tu preparación HYROX', level: 2 })).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'Saltar por ahora' }));
 
-    await waitFor(() => expect(screen.getByRole('region', { name: /Dashboard semanal/i })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Tu calendario empieza aqu/i })).toBeInTheDocument());
   });
 
   it('saves AthleteState when finishing onboarding', async () => {
@@ -109,7 +111,7 @@ describe('HYROX Planner authenticated shell', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
     fireEvent.click(screen.getByRole('button', { name: 'Finalizar' }));
 
-    await waitFor(() => expect(screen.getByRole('region', { name: /Dashboard semanal/i })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Tu calendario empieza aqu/i })).toBeInTheDocument());
     const profile = JSON.parse(window.localStorage.getItem('atletahy:user-1:athlete-profile') ?? '{}');
     const metrics = JSON.parse(window.localStorage.getItem('atletahy:user-1:physiology-metrics') ?? '{}');
     const equipment = JSON.parse(window.localStorage.getItem('atletahy:user-1:equipment-availability') ?? '{}');
@@ -130,7 +132,7 @@ describe('HYROX Planner authenticated shell', () => {
 
     render(<App />);
 
-    await waitFor(() => expect(screen.getByRole('region', { name: /Dashboard semanal/i })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Tu calendario empieza aqu/i })).toBeInTheDocument());
     fireEvent.click(screen.getByRole('link', { name: 'Mi perfil' }));
 
     expect(await screen.findByText('Perfil configurado')).toBeInTheDocument();

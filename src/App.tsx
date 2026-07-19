@@ -30,6 +30,7 @@ import { getDateKeyForTrainingDay, getDayForDate, getWeekForDate } from './utils
 import { getLogForTrainingDay } from './utils/weeklyAnalytics';
 import { usePersistentState } from './utils/persistence';
 import { adaptGeneratedPlanToTrainingWeeks } from './utils/generatedPlanAdapter';
+import { getPlanReadiness } from './utils/planReadiness';
 import { storageContextFor } from './repositories/storageKeys';
 import { isSupabaseConfigured, supabase } from './lib/supabaseClient';
 import type { TrainingTestCategory, TrainingTestId } from './types/tests';
@@ -49,6 +50,30 @@ const RETURN_TO_KEY = 'atletahy:return-to';
 
 function ScreenLoader({ label }: { label: string }) {
   return <div role="status" aria-live="polite" className="mx-auto w-full max-w-7xl px-4 py-5 text-sm font-semibold text-white/70">{label}</div>;
+}
+
+function PlanCalendarLoading() {
+  return (
+    <section role="status" aria-label="Cargando calendario personal" className="overflow-hidden rounded-2xl border border-white/10 bg-hyrox-panel/55 p-5">
+      <div className="h-2 w-28 animate-pulse rounded-full bg-hyrox-gold/50" />
+      <p className="mt-4 font-display text-2xl uppercase text-white">Cargando tu calendario</p>
+      <p className="mt-2 text-sm font-semibold text-white/55">Estamos comprobando si ya tienes un plan activo.</p>
+    </section>
+  );
+}
+
+function EmptyTrainingPlan({ ready, onOpenProfile }: { ready: boolean; onOpenProfile: () => void }) {
+  return (
+    <section aria-label="Calendario sin plan" className="relative overflow-hidden rounded-2xl border border-white/10 bg-hyrox-panel/60 p-5 sm:p-7">
+      <div className="pointer-events-none absolute -right-14 -top-20 h-52 w-52 rounded-full border border-hyrox-gold/20 bg-hyrox-gold/[0.04]" />
+      <p className="font-mono text-[0.66rem] font-black uppercase tracking-[0.22em] text-hyrox-gold">Primer bloque</p>
+      <h2 className="mt-2 max-w-xl font-display text-4xl uppercase leading-none text-white sm:text-5xl">Tu calendario empieza aquí</h2>
+      <p className="mt-4 max-w-2xl text-sm font-semibold leading-relaxed text-white/62">
+        {ready ? 'Aún no tienes entrenamientos asignados. Genera tu primer plan con IA y aparecerá aquí, separado de la demo.' : 'Completa los datos indicados para preparar un calendario adaptado a tu objetivo y disponibilidad.'}
+      </p>
+      {!ready ? <button type="button" onClick={onOpenProfile} className="mt-5 rounded-full border border-hyrox-gold px-5 py-3 text-xs font-black uppercase tracking-[0.16em] text-hyrox-gold transition hover:bg-hyrox-gold hover:text-black">Completar Mi perfil</button> : <p className="mt-5 text-xs font-black uppercase tracking-[0.16em] text-white/45">Usa “Generar mi plan con IA” para crear tus primeras dos semanas.</p>}
+    </section>
+  );
 }
 
 function parseRoute(pathname: string): { view: AppView; mode: RouteMode | null; testId?: TrainingTestId; legalDocument?: LegalDocument } {
@@ -117,9 +142,10 @@ function RoutedApp() {
   const storageContext = useMemo(() => storageContextFor(activeUserId), [activeUserId]);
   const storageIdentityKey = activeUserId ? `user:${activeUserId}` : 'guest';
   const [activeGeneratedPlan, setActiveGeneratedPlan] = useState<GeneratedTrainingPlan | null>(null);
+  const [isActivePlanLoading, setIsActivePlanLoading] = useState(false);
   const availableTrainingWeeks = useMemo(
-    () => activeGeneratedPlan ? adaptGeneratedPlanToTrainingWeeks(activeGeneratedPlan) : trainingWeeks,
-    [activeGeneratedPlan],
+    () => activeGeneratedPlan ? adaptGeneratedPlanToTrainingWeeks(activeGeneratedPlan) : route.mode === 'demo' ? trainingWeeks : [],
+    [activeGeneratedPlan, route.mode],
   );
   const [activeWeekId, setActiveWeekId] = useState<TrainingWeekId>(() => getInitialWeek(today).id);
   const activeWeek = useMemo(
@@ -160,6 +186,10 @@ function RoutedApp() {
   const athleteState: AthleteState = useMemo(
     () => ({ profile, physiology, availability, equipment, injuries, nutrition }),
     [availability, equipment, injuries, nutrition, physiology, profile],
+  );
+  const planReadiness = useMemo(
+    () => getPlanReadiness(athleteState, { requireAiConsent: Boolean(activeUserId), aiConsentGranted: route.mode === 'demo' || canUseHealthDataWithAi(consentRecord) }),
+    [activeUserId, athleteState, consentRecord, route.mode],
   );
   const onboardingIncomplete = isOnboardingIncomplete(athleteState);
   const shouldRenderOnboarding = view === 'onboarding' || (view === 'trainings' && Boolean(activeUserId) && !onboardingBypassed && onboardingIncomplete);
@@ -313,9 +343,10 @@ function RoutedApp() {
 
   useEffect(() => {
     setActiveGeneratedPlan(null);
+    setIsActivePlanLoading(Boolean(activeUserId));
     setWorkoutLogs({});
     setDataLoadError(null);
-  }, [storageIdentityKey]);
+  }, [activeUserId, storageIdentityKey]);
 
   useEffect(() => {
     let mounted = true;
@@ -382,6 +413,14 @@ function RoutedApp() {
     setActiveWeekId(nextWeek.id);
     setActiveDayId(reason === 'generation' ? nextWeek.days[0].id : getInitialDayId(today, nextWeek));
   }, [today]);
+
+  const handlePlanLoadingChange = useCallback((loading: boolean) => {
+    setIsActivePlanLoading(loading);
+  }, []);
+
+  const openPlanBlocker = useCallback((tab: 'profile' | 'availability' | 'privacy') => {
+    go(`${routeForView('account', route.mode === 'demo' ? 'demo' : 'app')}?tab=${encodeURIComponent(tab)}`);
+  }, [go, route.mode]);
 
   function handleSaveWorkoutLog(log: WorkoutLog) {
     setWorkoutLogs((current) => ({ ...current, [workoutLogKey(log.weekId, log.dayId, log.date)]: log }));
@@ -539,8 +578,11 @@ function RoutedApp() {
             onboardingIncomplete={onboardingIncomplete}
             aiConsentGranted={route.mode === 'demo' || canUseHealthDataWithAi(consentRecord)}
             onPlanChange={handlePlanChange}
+            onPlanLoadingChange={handlePlanLoadingChange}
+            onResolveBlocker={openPlanBlocker}
           /></Suspense>
-          <TrainingWorkspace
+          {route.mode === 'app' && isActivePlanLoading ? <PlanCalendarLoading /> : null}
+          {availableTrainingWeeks.length > 0 ? <TrainingWorkspace
             availableTrainingWeeks={availableTrainingWeeks}
             activeWeek={activeWeek}
             activeDay={activeDay}
@@ -555,7 +597,8 @@ function RoutedApp() {
             onSaveWorkoutLog={handleSaveWorkoutLog}
             userId={activeUserId}
             aiConsentGranted={route.mode === 'demo' || canUseHealthDataWithAi(consentRecord)}
-          />
+          /> : null}
+          {route.mode === 'app' && !isActivePlanLoading && availableTrainingWeeks.length === 0 ? <EmptyTrainingPlan ready={planReadiness.ready} onOpenProfile={() => openPlanBlocker(planReadiness.blockers[0]?.tab ?? 'profile')} /> : null}
         </div>
       ) : null}
       {pendingPath ? (

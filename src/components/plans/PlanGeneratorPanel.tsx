@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getActiveTrainingPlan, saveTrainingPlan } from '../../repositories/appRepository';
 import { sanitizeStoredTrainingPlan } from '../../repositories/trainingPlanPersistence';
 import { generateTrainingPlan } from '../../services/planService';
@@ -6,6 +6,7 @@ import { getTrainingPlanErrorMessage } from '../../services/planErrorUtils';
 import type { AthleteState, DailyReadiness, WorkoutLog } from '../../types/athlete';
 import type { GeneratedTrainingPlan, GeneratedTrainingPlanErrorCode, GeneratedTrainingPlanSource, StoredTrainingPlan } from '../../types/plan';
 import { buildPlanGenerationInput, type PlanGenerationInput } from '../../utils/planInput';
+import { getPlanReadiness, type PlanReadinessTab } from '../../utils/planReadiness';
 
 interface PlanGeneratorPanelProps {
   athleteState: AthleteState;
@@ -15,6 +16,8 @@ interface PlanGeneratorPanelProps {
   onboardingIncomplete?: boolean;
   aiConsentGranted?: boolean;
   onPlanChange?: (plan: GeneratedTrainingPlan | null, reason: 'load' | 'generation') => void;
+  onPlanLoadingChange?: (isLoading: boolean) => void;
+  onResolveBlocker?: (tab: PlanReadinessTab) => void;
 }
 
 type GenerationPhase = 'idle' | 'preparing' | 'requesting' | 'saving';
@@ -27,7 +30,7 @@ function phaseLabel(phase: GenerationPhase) {
   return null;
 }
 
-export function PlanGeneratorPanel({ athleteState, dailyReadiness, recentWorkoutLogs, userId = null, onboardingIncomplete = false, aiConsentGranted = true, onPlanChange }: PlanGeneratorPanelProps) {
+export function PlanGeneratorPanel({ athleteState, dailyReadiness, recentWorkoutLogs, userId = null, onboardingIncomplete = false, aiConsentGranted = true, onPlanChange, onPlanLoadingChange, onResolveBlocker }: PlanGeneratorPanelProps) {
   const [storedPlan, setStoredPlan] = useState<StoredTrainingPlan | null>(null);
   const [isLoadingPlan, setIsLoadingPlan] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -38,11 +41,17 @@ export function PlanGeneratorPanel({ athleteState, dailyReadiness, recentWorkout
   const [pendingSave, setPendingSave] = useState<PendingPlanSave | null>(null);
   const inFlightRef = useRef(false);
   const generatedSinceLoadRef = useRef(false);
+  const readiness = useMemo(
+    () => getPlanReadiness(athleteState, { requireAiConsent: Boolean(userId), aiConsentGranted }),
+    [aiConsentGranted, athleteState, userId],
+  );
+  const generationBlocked = Boolean(userId && !readiness.ready);
 
   useEffect(() => {
     let isMounted = true;
     generatedSinceLoadRef.current = false;
     setIsLoadingPlan(true);
+    onPlanLoadingChange?.(true);
     void getActiveTrainingPlan(userId)
       .then((value) => {
         if (!isMounted || generatedSinceLoadRef.current) return;
@@ -56,10 +65,13 @@ export function PlanGeneratorPanel({ athleteState, dailyReadiness, recentWorkout
         onPlanChange?.(null, 'load');
       })
       .finally(() => {
-        if (isMounted) setIsLoadingPlan(false);
+        if (isMounted) {
+          setIsLoadingPlan(false);
+          onPlanLoadingChange?.(false);
+        }
       });
     return () => { isMounted = false; };
-  }, [onPlanChange, userId]);
+  }, [onPlanChange, onPlanLoadingChange, userId]);
 
   function resetGenerationFeedback() {
     setGenerationPhase('idle');
@@ -86,6 +98,10 @@ export function PlanGeneratorPanel({ athleteState, dailyReadiness, recentWorkout
 
   async function handleGeneratePlan() {
     if (inFlightRef.current || isGenerating) return;
+    if (generationBlocked) {
+      setMessage('Completa los campos indicados antes de generar tu plan.');
+      return;
+    }
     if (userId && !aiConsentGranted) {
       setMessage('Activa el consentimiento opcional de datos de salud e IA desde Mi cuenta antes de usar la IA remota.');
       return;
@@ -143,16 +159,28 @@ export function PlanGeneratorPanel({ athleteState, dailyReadiness, recentWorkout
             {!plan ? <p className="mt-2 max-w-2xl text-sm font-semibold leading-relaxed text-white/62">Genera un bloque inicial adaptado a tu objetivo, disponibilidad, material y estado actual.</p> : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={() => void handleGeneratePlan()} disabled={isGenerating || Boolean(userId && !aiConsentGranted)} className="rounded-full border border-hyrox-gold bg-hyrox-gold px-5 py-3 text-xs font-black uppercase tracking-[0.16em] text-black transition hover:bg-white disabled:cursor-wait disabled:opacity-70">
+            <button type="button" onClick={() => void handleGeneratePlan()} disabled={isGenerating || generationBlocked} className="rounded-full border border-hyrox-gold bg-hyrox-gold px-5 py-3 text-xs font-black uppercase tracking-[0.16em] text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-55">
               {isGenerating ? 'Generando plan...' : plan ? 'Regenerar plan' : 'Generar mi plan con IA'}
             </button>
             {!isGenerating && messageCode ? <button type="button" onClick={() => void handleGeneratePlan()} className="rounded-full border border-white/15 px-4 py-2 text-xs font-black uppercase tracking-[0.16em]">Reintentar</button> : null}
             {!isGenerating && pendingSave ? <button type="button" onClick={() => void handleRetrySave()} className="rounded-full border border-white/15 px-4 py-2 text-xs font-black uppercase tracking-[0.16em]">Reintentar guardado</button> : null}
-            {!isGenerating && message ? <button type="button" onClick={resetGenerationFeedback} className="rounded-full border border-white/15 px-4 py-2 text-xs font-black uppercase tracking-[0.16em]">Restablecer</button> : null}
+            {!isGenerating && message ? <button type="button" onClick={resetGenerationFeedback} className="rounded-full border border-white/15 px-4 py-2 text-xs font-black uppercase tracking-[0.16em]">Ocultar mensaje</button> : null}
           </div>
         </div>
-        {onboardingIncomplete ? <p className="mt-4 rounded-2xl border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm font-semibold text-amber-100">Completa el onboarding para generar un plan más preciso.</p> : null}
-        {userId && !aiConsentGranted ? <p className="mt-4 rounded-2xl border border-sky-300/25 bg-sky-300/10 px-4 py-3 text-sm font-semibold text-sky-100">La IA remota está desactivada: no has autorizado el uso de datos de salud con OpenAI. Puedes cambiarlo en Mi cuenta → Privacidad.</p> : null}
+        {userId && readiness.blockers.length > 0 ? (
+          <div className="mt-4 rounded-2xl border border-amber-300/30 bg-amber-300/[0.08] p-4" role="status" aria-label="Datos necesarios para generar el plan">
+            <p className="text-sm font-black text-amber-100">Completa estos datos para generar tu plan:</p>
+            <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+              {readiness.blockers.map((blocker) => (
+                <li key={blocker.path} className="rounded-xl border border-white/10 bg-black/20 p-3">
+                  <p className="text-sm font-black text-white">{blocker.label}</p>
+                  <p className="mt-1 text-xs font-semibold leading-relaxed text-white/65">{blocker.message}</p>
+                  {onResolveBlocker ? <button type="button" onClick={() => onResolveBlocker(blocker.tab)} aria-label={`Completar en Mi perfil: ${blocker.label}`} className="mt-3 text-[0.68rem] font-black uppercase tracking-[0.14em] text-hyrox-gold underline decoration-hyrox-gold/40 underline-offset-4">Completar en Mi perfil</button> : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : onboardingIncomplete ? <p className="mt-4 rounded-2xl border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm font-semibold text-amber-100">Completa el onboarding para generar un plan más preciso.</p> : null}
         {(phaseText || message) ? <div role="status" aria-live="polite" aria-atomic="true">
           {phaseText ? <p className="mt-4 text-sm font-semibold text-white/70">{phaseText}</p> : null}
           {message ? <p className="mt-2 text-sm font-semibold text-hyrox-gold">{message}</p> : null}

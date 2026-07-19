@@ -46,6 +46,32 @@ describe('buildPlanGenerationInput', () => {
     expect(input.recentWorkoutLogs).toHaveLength(1);
   });
 
+  it('allowlists the AI snapshot and strips legacy UI metadata', () => {
+    const input = buildPlanGenerationInput({
+      athleteState: {
+        profile: {
+          ...defaultAthleteProfile,
+          targetDate: '2026-11-22',
+          mainGoal: 'competir',
+          hyroxCategory: 'women_open',
+          hyroxCategoryLegacy: { value: 'Elite histórica', label: 'Categoría anterior', ambiguous: true },
+        },
+        physiology: defaultPhysiologyMetrics,
+        availability: { ...defaultTrainingAvailability, availableDays: ['Lunes'], maxSessionMinutes: 60, preferredTrainingTime: 'mañana' },
+        equipment: { ...defaultEquipmentAvailability, _uiExpanded: true } as never,
+        injuries: [{
+          id: 'injury-safe', body_area: '', side: '', pain_level_0_10: '', status: 'active', movement_restrictions: '', notes: '', _uiDraft: true,
+        } as never],
+        nutrition: { ...defaultNutritionPreferences, dietTypeLegacy: undefined },
+      },
+    });
+
+    expect(validatePlanGenerationInput(input)).toBe(true);
+    expect(input.nutrition).not.toHaveProperty('dietTypeLegacy');
+    expect(input.objective).not.toHaveProperty('hyroxCategoryLegacy');
+    expect(JSON.stringify(input)).not.toMatch(/_ui|Legacy/);
+  });
+
   it('keeps only 7 recent deduped workout logs and trims empty text noise', () => {
     const input = buildPlanGenerationInput({
       athleteState: {

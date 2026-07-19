@@ -44,7 +44,7 @@ export interface PlanGenerationInput {
   };
   injuries: Injury[];
   physiology: AthleteState['physiology'];
-  nutrition: AthleteState['nutrition'];
+  nutrition: Omit<AthleteState['nutrition'], 'dietTypeLegacy'>;
   dailyReadiness: DailyReadiness | null;
   recentWorkoutLogs: WorkoutLog[];
 }
@@ -84,10 +84,19 @@ function signalScore(log: WorkoutLog) {
 
 function sanitizeWorkoutLog(log: WorkoutLog): WorkoutLog {
   return {
-    ...log,
+    id: log.id,
     date: log.date.trim(),
     weekId: log.weekId.trim(),
     dayId: log.dayId.trim(),
+    status: log.status,
+    durationMinutes: log.durationMinutes,
+    sessionRpe1To10: log.sessionRpe1To10,
+    averageHr: log.averageHr,
+    maxHr: log.maxHr,
+    calories: log.calories,
+    startedAt: log.startedAt,
+    finishedAt: log.finishedAt,
+    completionPercent: log.completionPercent,
     notes: log.notes.trim(),
     wentWell: log.wentWell.trim(),
     wentWrong: log.wentWrong.trim(),
@@ -146,17 +155,77 @@ export function buildPlanGenerationInput({
       tenKPace: physiology.tenKPace || undefined,
       strengthExperience: physiology.strengthExperience || undefined,
     },
-    availability,
+    availability: {
+      availableDays: [...availability.availableDays],
+      preferredTrainingTime: availability.preferredTrainingTime,
+      maxSessionMinutes: availability.maxSessionMinutes,
+      canDoubleSession: availability.canDoubleSession,
+      minHoursBetweenSessions: availability.minHoursBetweenSessions,
+      scheduleNotes: availability.scheduleNotes,
+    },
     equipment: {
-      available: (Object.keys(equipment) as (keyof EquipmentAvailability)[])
+      available: (Object.keys(equipmentLabels) as (keyof EquipmentAvailability)[])
         .filter((key) => equipment[key])
         .map((key) => equipmentLabels[key]),
-      raw: equipment,
+      raw: Object.fromEntries(
+        (Object.keys(equipmentLabels) as (keyof EquipmentAvailability)[]).map((key) => [key, equipment[key] === true]),
+      ) as unknown as EquipmentAvailability,
     },
-    injuries,
-    physiology,
-    nutrition,
-    dailyReadiness,
+    injuries: injuries.map((injury) => ({
+      id: injury.id,
+      body_area: injury.body_area,
+      side: injury.side,
+      pain_level_0_10: injury.pain_level_0_10,
+      status: injury.status,
+      started_at: injury.started_at,
+      resolved_at: injury.resolved_at,
+      movement_restrictions: injury.movement_restrictions,
+      notes: injury.notes,
+    })),
+    physiology: {
+      restingHrBaseline: physiology.restingHrBaseline,
+      restingHrToday: physiology.restingHrToday,
+      maxHr: physiology.maxHr,
+      lthr: physiology.lthr,
+      rftp: physiology.rftp,
+      z2PaceLow: physiology.z2PaceLow,
+      z2PaceHigh: physiology.z2PaceHigh,
+      fiveKPace: physiology.fiveKPace,
+      tenKPace: physiology.tenKPace,
+      hrvBaseline: physiology.hrvBaseline,
+      currentRunningVolumeKm: physiology.currentRunningVolumeKm,
+      currentLongRunKm: physiology.currentLongRunKm,
+      hyroxExperience: physiology.hyroxExperience,
+      strengthExperience: physiology.strengthExperience,
+    },
+    nutrition: {
+      goal: nutrition.goal,
+      dietType: nutrition.dietType,
+      allergies: nutrition.allergies,
+      intolerances: nutrition.intolerances,
+      caffeineTolerance: nutrition.caffeineTolerance,
+      fastedTrainingPreference: nutrition.fastedTrainingPreference,
+      mealTiming: nutrition.mealTiming,
+      supplements: nutrition.supplements,
+      notes: nutrition.notes,
+    },
+    dailyReadiness: dailyReadiness ? {
+      date: dailyReadiness.date,
+      sleepHours: dailyReadiness.sleepHours,
+      sleepQuality1To5: dailyReadiness.sleepQuality1To5,
+      stress1To5: dailyReadiness.stress1To5,
+      fatigue1To5: dailyReadiness.fatigue1To5,
+      muscleSoreness1To5: dailyReadiness.muscleSoreness1To5,
+      legSoreness1To5: dailyReadiness.legSoreness1To5,
+      upperSoreness1To5: dailyReadiness.upperSoreness1To5,
+      motivation1To5: dailyReadiness.motivation1To5,
+      hydration1To5: dailyReadiness.hydration1To5,
+      pain0To10: dailyReadiness.pain0To10,
+      painLocation: dailyReadiness.painLocation,
+      restingHr: dailyReadiness.restingHr,
+      hrv: dailyReadiness.hrv,
+      notes: dailyReadiness.notes,
+    } : null,
     recentWorkoutLogs: selectRelevantWorkoutLogs(recentWorkoutLogs),
   };
 }

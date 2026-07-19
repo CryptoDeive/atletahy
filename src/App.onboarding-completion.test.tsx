@@ -113,7 +113,7 @@ describe('App onboarding completion persistence', () => {
 
     await waitFor(() => expect(mocks.saveAthleteState).toHaveBeenCalled());
     await act(async () => { resolveSave?.(); });
-    await waitFor(() => expect(screen.getByRole('region', { name: /Dashboard semanal/i })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Tu calendario empieza aquí/i })).toBeInTheDocument());
   });
 
   it('keeps onboarding visible and shows an error when saveAthleteState fails', async () => {
@@ -167,7 +167,7 @@ describe('App onboarding completion persistence', () => {
 
     await waitFor(() => expect(mocks.saveAthleteState).toHaveBeenCalledTimes(1));
     await act(async () => { resolveSave?.(); });
-    await waitFor(() => expect(screen.getByRole('region', { name: /Dashboard semanal/i })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Tu calendario empieza aquí/i })).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('link', { name: 'Mi perfil' }));
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Mi perfil', level: 2 })).toBeInTheDocument());

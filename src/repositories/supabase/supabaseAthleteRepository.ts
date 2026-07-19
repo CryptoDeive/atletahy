@@ -125,6 +125,24 @@ function mapNutrition(row: NutritionRow | null | undefined): NutritionPreference
   };
 }
 
+export function mapAthleteStateFromRows(rows: {
+  profile: ProfileRow | null | undefined;
+  metrics: MetricsRow | null | undefined;
+  availability: AvailabilityRow | null | undefined;
+  equipment: EquipmentRow | null | undefined;
+  injuries: InjuryRow[];
+  nutrition: NutritionRow | null | undefined;
+}): AthleteState {
+  return {
+    profile: mapProfile(rows.profile),
+    physiology: mapMetrics(rows.metrics),
+    availability: mapAvailability(rows.availability),
+    equipment: mapEquipment(rows.equipment),
+    injuries: rows.injuries.map(mapInjury),
+    nutrition: mapNutrition(rows.nutrition),
+  };
+}
+
 export async function getAthleteStateFromSupabase(userId: string): Promise<AthleteState | null> {
   const client = getSupabaseClient();
   if (!client) throw new Error('Supabase no está configurado.');
@@ -149,14 +167,14 @@ export async function getAthleteStateFromSupabase(userId: string): Promise<Athle
   );
   if (!hasAnyRemoteState) return null;
 
-  return {
-    profile: mapProfile(profileResult.data),
-    physiology: mapMetrics(metricsResult.data),
-    availability: mapAvailability(availabilityResult.data),
-    equipment: mapEquipment(equipmentResult.data),
-    injuries: (injuriesResult.data ?? []).map(mapInjury),
-    nutrition: mapNutrition(nutritionResult.data),
-  };
+  return mapAthleteStateFromRows({
+    profile: profileResult.data,
+    metrics: metricsResult.data,
+    availability: availabilityResult.data,
+    equipment: equipmentResult.data,
+    injuries: injuriesResult.data ?? [],
+    nutrition: nutritionResult.data,
+  });
 }
 
 export async function saveAthleteStateToSupabase(userId: string, state: AthleteState): Promise<void> {

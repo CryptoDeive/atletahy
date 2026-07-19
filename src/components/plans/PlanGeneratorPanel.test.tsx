@@ -45,6 +45,28 @@ describe('PlanGeneratorPanel', () => {
     expect(await screen.findByText(/Completa el onboarding para generar un plan m.s preciso/i)).toBeInTheDocument();
   });
 
+  it('shows exact required-field blockers and deep-links to the matching profile tab', async () => {
+    const onResolveBlocker = vi.fn();
+    const { PlanGeneratorPanel } = await import('./PlanGeneratorPanel');
+
+    render(<PlanGeneratorPanel
+      athleteState={{
+        ...validAthleteStateForPlan,
+        availability: { ...validAthleteStateForPlan.availability, availableDays: [] },
+      }}
+      dailyReadiness={null}
+      recentWorkoutLogs={[]}
+      userId="user-1"
+      onResolveBlocker={onResolveBlocker}
+    />);
+
+    expect(await screen.findByText('Días disponibles')).toBeInTheDocument();
+    expect(screen.getByText(/Selecciona al menos un día/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Generar mi plan con IA/i })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: /Completar en Mi perfil: Días disponibles/i }));
+    expect(onResolveBlocker).toHaveBeenCalledWith('availability');
+  });
+
   it('guards against double requests while generation is already in progress', async () => {
     let resolveGeneration: ((value: unknown) => void) | null = null;
     generateTrainingPlan.mockImplementation(() => new Promise((resolve) => {
@@ -134,7 +156,7 @@ describe('PlanGeneratorPanel', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Generar mi plan con IA/i }));
 
     expect(await screen.findByText(/tard.\s+demasiado en responder/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Restablecer/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Ocultar mensaje/i }));
     await waitFor(() => expect(screen.queryByText(/tard.\s+demasiado en responder/i)).not.toBeInTheDocument());
 
     fireEvent.click(screen.getByRole('button', { name: /Generar mi plan con IA/i }));
