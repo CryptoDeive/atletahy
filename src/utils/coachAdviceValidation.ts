@@ -53,7 +53,7 @@ export function validateCoachAdvice(value: unknown): ValidationResult {
     const error = requireStringArray(value.nutrition, key);
     if (error) return { ok: false, error: `nutrition.${error}` };
   }
-  if (value.nutrition.caffeine !== undefined && typeof value.nutrition.caffeine !== 'string') {
+  if (value.nutrition.caffeine !== undefined && value.nutrition.caffeine !== null && typeof value.nutrition.caffeine !== 'string') {
     return { ok: false, error: 'nutrition.caffeine debe ser string si existe' };
   }
 
@@ -62,7 +62,7 @@ export function validateCoachAdvice(value: unknown): ValidationResult {
   if (typeof value.scheduling.reason !== 'string') return { ok: false, error: 'scheduling.reason debe ser string' };
   if (typeof value.scheduling.doubleSessionRecommended !== 'boolean') return { ok: false, error: 'scheduling.doubleSessionRecommended debe ser boolean' };
 
-  if (value.scheduling.doubleSessionPlan !== undefined) {
+  if (value.scheduling.doubleSessionPlan !== undefined && value.scheduling.doubleSessionPlan !== null) {
     const plan = value.scheduling.doubleSessionPlan;
     if (!isRecord(plan)) return { ok: false, error: 'scheduling.doubleSessionPlan debe ser un objeto' };
     if (typeof plan.session1 !== 'string') return { ok: false, error: 'scheduling.doubleSessionPlan.session1 debe ser string' };
@@ -72,5 +72,13 @@ export function validateCoachAdvice(value: unknown): ValidationResult {
     }
   }
 
-  return { ok: true, advice: value as CoachAdvice };
+  const nutrition = { ...value.nutrition };
+  if (nutrition.caffeine === null) delete nutrition.caffeine;
+  const scheduling = { ...value.scheduling };
+  if (scheduling.doubleSessionPlan === null) delete scheduling.doubleSessionPlan;
+
+  return {
+    ok: true,
+    advice: { ...value, nutrition, scheduling } as CoachAdvice,
+  };
 }

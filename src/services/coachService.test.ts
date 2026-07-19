@@ -72,6 +72,27 @@ describe('generateCoachAdvice', () => {
     expect(invokeMock).toHaveBeenCalledWith('generate-coach-advice', { body: { input } });
   });
 
+  it('accepts the nullable optional fields returned by the Edge strict schema', async () => {
+    const edgeAdvice = {
+      ...validCoachAdvice,
+      nutrition: { ...validCoachAdvice.nutrition, caffeine: null },
+      scheduling: { ...validCoachAdvice.scheduling, doubleSessionPlan: null },
+    };
+    const invoke = vi.fn().mockResolvedValue({ data: { advice: edgeAdvice, source: 'openai' }, error: null });
+    const { generateCoachAdvice } = await importServiceWithSupabaseMock({
+      configured: true,
+      session: { access_token: 'redacted-test-token', user: { id: 'user-1' } },
+      invoke,
+    });
+
+    const result = await generateCoachAdvice(buildCoachAdviceInput());
+
+    expect(result.source).toBe('openai');
+    expect(result.error).toBeUndefined();
+    expect(result.advice.nutrition.caffeine).toBeUndefined();
+    expect(result.advice.scheduling.doubleSessionPlan).toBeUndefined();
+  });
+
   it('falls back to local advice when the Edge Function fails', async () => {
     const invoke = vi.fn().mockResolvedValue({ data: null, error: new Error('edge failed') });
     const { generateCoachAdvice } = await importServiceWithSupabaseMock({
