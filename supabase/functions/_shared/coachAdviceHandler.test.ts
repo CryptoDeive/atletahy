@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { buildCoachAdviceInput, validCoachAdvice } from '../../../src/test/coachTestUtils';
 import { createCoachAdviceHandler } from './coachAdviceHandler';
+import { coachAdviceJsonSchema } from './coachAdviceSchema';
 
 function setup(overrides: Partial<Parameters<typeof createCoachAdviceHandler>[0]> = {}) {
   const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ output_text: JSON.stringify(validCoachAdvice) }), { status: 200 }));
@@ -19,6 +20,18 @@ function setup(overrides: Partial<Parameters<typeof createCoachAdviceHandler>[0]
 const request = (input: unknown) => new Request('https://example.com', { method: 'POST', headers: { Authorization: 'Bearer safe', 'Content-Type': 'application/json' }, body: JSON.stringify({ input }) });
 
 describe('coach advice handler hardening', () => {
+  it('uses an OpenAI strict schema where every object property is required', () => {
+    const assertStrictObjects = (schema: any): void => {
+      if (!schema || typeof schema !== 'object') return;
+      if (schema.type === 'object') {
+        expect([...schema.required].sort()).toEqual(Object.keys(schema.properties).sort());
+      }
+      Object.values(schema.properties ?? {}).forEach(assertStrictObjects);
+      if (schema.items) assertStrictObjects(schema.items);
+    };
+
+    assertStrictObjects(coachAdviceJsonSchema);
+  });
   it('fails closed before quota or OpenAI when current health and AI consent is absent', async () => {
     const fetch = vi.fn();
     const rpc = vi.fn(async (name: string) => name === 'has_current_ai_health_consent'

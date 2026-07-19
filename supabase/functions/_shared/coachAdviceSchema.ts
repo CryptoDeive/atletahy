@@ -51,7 +51,7 @@ export function validateCoachAdvice(value: unknown): CoachAdviceValidationResult
     const error = requireStringArray(value.nutrition, key);
     if (error) return { ok: false, error: `nutrition.${error}` };
   }
-  if (value.nutrition.caffeine !== undefined && !isBoundedString(value.nutrition.caffeine)) return { ok: false, error: 'nutrition.caffeine inválido' };
+  if (value.nutrition.caffeine !== undefined && value.nutrition.caffeine !== null && !isBoundedString(value.nutrition.caffeine)) return { ok: false, error: 'nutrition.caffeine inválido' };
 
   if (!isRecord(value.scheduling)) return { ok: false, error: 'scheduling inválido' };
   if (!hasOnlyKeys(value.scheduling, ['bestTimeWindow', 'reason', 'doubleSessionRecommended', 'doubleSessionPlan'])) return { ok: false, error: 'Campo de scheduling no permitido' };
@@ -59,7 +59,7 @@ export function validateCoachAdvice(value: unknown): CoachAdviceValidationResult
   if (!isBoundedString(value.scheduling.reason)) return { ok: false, error: 'scheduling.reason inválido' };
   if (typeof value.scheduling.doubleSessionRecommended !== 'boolean') return { ok: false, error: 'scheduling.doubleSessionRecommended inválido' };
 
-  if (value.scheduling.doubleSessionPlan !== undefined) {
+  if (value.scheduling.doubleSessionPlan !== undefined && value.scheduling.doubleSessionPlan !== null) {
     const plan = value.scheduling.doubleSessionPlan;
     if (!isRecord(plan)) return { ok: false, error: 'doubleSessionPlan inválido' };
     if (!hasOnlyKeys(plan, ['session1', 'session2', 'minimumHoursBetween'])) return { ok: false, error: 'Campo de doubleSessionPlan no permitido' };
@@ -115,25 +115,25 @@ export const coachAdviceJsonSchema = {
     nutrition: {
       type: 'object',
       additionalProperties: false,
-      required: ['preWorkout', 'intraWorkout', 'postWorkout', 'hydration'],
+      required: ['preWorkout', 'intraWorkout', 'postWorkout', 'hydration', 'caffeine'],
       properties: {
         preWorkout: stringArraySchema,
         intraWorkout: stringArraySchema,
         postWorkout: stringArraySchema,
         hydration: stringArraySchema,
-        caffeine: { type: 'string' },
+        caffeine: { type: ['string', 'null'] },
       },
     },
     scheduling: {
       type: 'object',
       additionalProperties: false,
-      required: ['bestTimeWindow', 'reason', 'doubleSessionRecommended'],
+      required: ['bestTimeWindow', 'reason', 'doubleSessionRecommended', 'doubleSessionPlan'],
       properties: {
         bestTimeWindow: { type: 'string', enum: ['morning', 'midday', 'afternoon', 'evening', 'any'] },
         reason: { type: 'string' },
         doubleSessionRecommended: { type: 'boolean' },
         doubleSessionPlan: {
-          type: 'object',
+          type: ['object', 'null'],
           additionalProperties: false,
           required: ['session1', 'session2', 'minimumHoursBetween'],
           properties: {
